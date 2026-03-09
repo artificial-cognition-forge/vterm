@@ -103,6 +103,35 @@ export class RenderingPass {
     parentScrollY: number,
     clipBox?: ClipBox
   ): void {
+    // Calculate the effective scroll Y for children of this context
+    // (the context root's scrollY is applied to all children in its layers)
+    const contextScrollY = parentScrollY + context.root.scrollY
+
+    // Compute clip box for this context's children (if the context root is scrollable)
+    let contextClipBox = clipBox
+    if (context.root.layout && isScrollableNode(context.root)) {
+      const adjustedY = context.root.layout.y - parentScrollY
+      contextClipBox = {
+        x: context.root.layout.x,
+        y: adjustedY,
+        width: context.root.layout.width,
+        height: context.root.layout.height,
+      }
+      // Intersect with parent clipBox if it exists
+      if (clipBox) {
+        const x = Math.max(clipBox.x, contextClipBox.x)
+        const y = Math.max(clipBox.y, contextClipBox.y)
+        const right = Math.min(clipBox.x + clipBox.width, contextClipBox.x + contextClipBox.width)
+        const bottom = Math.min(clipBox.y + clipBox.height, contextClipBox.y + contextClipBox.height)
+        contextClipBox = {
+          x,
+          y,
+          width: Math.max(0, right - x),
+          height: Math.max(0, bottom - y),
+        }
+      }
+    }
+
     // Process each layer (z-index level) in order
     for (let layerIdx = 0; layerIdx < context.renderOrder.length; layerIdx++) {
       const layer = context.renderOrder[layerIdx]
@@ -112,13 +141,13 @@ export class RenderingPass {
       // First pass for this z-index: render backgrounds and borders
       this.isTextPass = false
       for (const node of layer.nodes) {
-        this.renderNode(node, context, parentScrollY, clipBox)
+        this.renderNode(node, context, contextScrollY, contextClipBox)
       }
 
       // Second pass for this z-index: render text content
       this.isTextPass = true
       for (const node of layer.nodes) {
-        this.renderNode(node, context, parentScrollY, clipBox)
+        this.renderNode(node, context, contextScrollY, contextClipBox)
       }
 
       // Render nested stacking contexts that are at this z-index level
@@ -130,9 +159,14 @@ export class RenderingPass {
             : 0
 
         if (contextZIdx === layerZIdx) {
-          this.renderByZIndexLevels(nestedContext, parentScrollY, clipBox)
+          this.renderByZIndexLevels(nestedContext, parentScrollY, contextClipBox)
         }
       }
+    }
+
+    // Render scrollbar for this context's root (if scrollable, on background pass)
+    if (context.root.layout && isScrollableNode(context.root)) {
+      this.renderScrollbar(context.root, parentScrollY)
     }
   }
 
@@ -353,7 +387,7 @@ export class RenderingPass {
     const cellStyle = this.visualStyleToCellStyle(style)
     const adjustedY = layout.y - parentScrollY
 
-    if (adjustedY + layout.height < 0 || adjustedY >= this.buffer.height) return
+    if (adjustedY + layout.height <= 0 || adjustedY >= this.buffer.height) return
 
     const lines = text.split("\n")
     for (let i = 0; i < lines.length && i < layout.height; i++) {
@@ -412,8 +446,15 @@ export class RenderingPass {
 
       const contentX = layout.x + border + padding.left
       const contentY = (layout.y - parentScrollY) + border + padding.top
-      const contentWidth = layout.width - 2 * border - padding.left - padding.right
+      let contentWidth = layout.width - 2 * border - padding.left - padding.right
       const contentHeight = layout.height - 2 * border - padding.top - padding.bottom
+
+      // If there's a clipBox, constrain the content width to it
+      let maxX = contentX + contentWidth
+      if (clipBox) {
+        maxX = Math.min(maxX, clipBox.x + clipBox.width)
+      }
+      const effectiveWidth = Math.max(1, maxX - contentX)
 
       const scrollOffset = node.scrollY
       const textAlign = node.layoutProps.textAlign
@@ -431,15 +472,15 @@ export class RenderingPass {
 
         if (clipBox && (y < clipBox.y || y >= clipBox.y + clipBox.height)) continue
 
-        const clipped = line.slice(0, contentWidth)
+        const clipped = line.slice(0, effectiveWidth)
         let x = contentX
         if (textAlign === "center") {
-          x = contentX + Math.floor((contentWidth - clipped.length) / 2)
+          x = contentX + Math.floor((effectiveWidth - clipped.length) / 2)
         } else if (textAlign === "right") {
-          x = contentX + contentWidth - clipped.length
+          x = contentX + effectiveWidth - clipped.length
         }
 
-        const textToWrite = clipped.padEnd(contentWidth - (x - contentX), " ")
+        const textToWrite = clipped.padEnd(effectiveWidth - (x - contentX), " ")
         this.buffer.write(x, y, textToWrite, cellStyle)
       }
     }
@@ -487,6 +528,7 @@ export class RenderingPass {
     const layout = node.layout!
     const contentHeight = node.contentHeight ?? 0
     const viewportHeight = layout.height
+
     if (contentHeight <= viewportHeight) return
 
     const adjustedY = layout.y - parentScrollY

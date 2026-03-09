@@ -114,6 +114,9 @@ export function buildStackingContextTree(root: LayoutNode): StackingContext {
     renderOrder: [],
   }
 
+  // Mark the root as creating a stacking context (all roots create stacking contexts)
+  root.createsStackingContext = true
+
   // Add the root node itself as the first layer (its background and border)
   // This represents the root stacking context's background/border layer
   context.childrenByZIndex.set("root-background", [root])
