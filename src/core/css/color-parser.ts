@@ -219,16 +219,24 @@ export function parseColor(value: string): string | null {
       return value
   }
 
-  // RGB/RGBA - convert to hex
+  // RGB/RGBA - convert to hex (supports percentages and whitespace)
   if (value.startsWith('rgb')) {
-    const match = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/)
-    if (match && match[1] && match[2] && match[3]) {
-      const r = parseInt(match[1])
-      const g = parseInt(match[2])
-      const b = parseInt(match[3])
-
-      // Convert to hex
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+    const start = value.indexOf('(');
+    const end = value.lastIndexOf(')');
+    if (start === -1 || end === -1) return null;
+    const inner = value.slice(start + 1, end);
+    const parts = inner.split(',').map(p => p.trim());
+    if (parts.length >= 3) {
+      const to255 = (v: string) => {
+        if (v.endsWith('%')) {
+          return Math.round(parseFloat(v) * 2.55);
+        }
+        return parseInt(v, 10);
+      };
+      const r = to255(parts[0]!);
+      const g = to255(parts[1]!);
+      const b = to255(parts[2]!);
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
   }
 
@@ -281,7 +289,8 @@ export function parseBorder(value: string): { fg?: string; bg?: string } | null 
   // Look for color in the parts
   for (const part of parts) {
     if (!borderKeywords.has(part) && !part.match(/^\d/)) {
-      borderStyle.fg = parseColor(part)
+      const parsed = parseColor(part);
+      if (parsed !== null) borderStyle.fg = parsed;
       break
     }
   }
