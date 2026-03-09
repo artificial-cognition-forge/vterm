@@ -1,0 +1,47 @@
+{
+    "name": "@arcforge/vterm",
+    "version": "0.7.0",
+    "description": "Build blazingly fast terminal apps with Vue components and CSS",
+    "type": "module",
+    "main": "./src/index.ts",
+    "private": false,
+    "types": "./src/index.ts",
+    "bin": {
+        "vterm": "./src/index.ts"
+    },
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "default": "./src/index.ts"
+        },
+        "./runtime": {
+            "types": "./src/runtime/index.ts",
+            "default": "./src/runtime/index.ts"
+        },
+        "./testing": {
+            "types": "./src/testing/index.ts",
+            "default": "./src/testing/index.ts"
+        }
+    },
+    "files": [
+        "src"
+    ],
+    "scripts": {
+        "dev": "bun run src/index.ts"
+    },
+    "devDependencies": {
+        "@types/bun": "latest"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "dependencies": {
+        "@vue/compiler-sfc": "^3.5.26",
+        "postcss": "^8.5.6",
+        "postcss-nested": "^7.0.2",
+        "shiki": "^1.0.0",
+        "sucrase": "^3.35.1",
+        "unimport": "^5.6.0",
+        "vue": "^3.5.26"
+    }
+}

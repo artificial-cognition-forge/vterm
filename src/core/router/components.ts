@@ -1,0 +1,107 @@
+import { defineComponent, h, inject } from "vue"
+import type { Route, Router } from "./types"
+import { matchRoute } from "./matcher"
+
+/**
+ * RouterLink - renders an <a> tag with active route classes.
+ *
+ * Usage: <RouterLink to="/settings">Settings</RouterLink>
+ *
+ * Active classes (style with CSS):
+ *   .router-link-active       — link is a prefix match of current route
+ *   .router-link-exact-active — link exactly matches current route
+ *
+ * Navigation is handled automatically by the <a> element behavior (keyboard
+ * enter and mouse click both work without adding @press handlers).
+ */
+export const RouterLink = defineComponent({
+    name: "RouterLink",
+    props: {
+        to: { type: String, required: true },
+    },
+    setup(props, { slots }) {
+        const router = inject(Symbol.for("vterm-router")) as Router | undefined
+
+        return () => {
+            const currentPath = (router as any)?.currentPath?.value ?? "/"
+            const to = props.to
+
+            const isExactActive = currentPath === to
+            const isActive =
+                isExactActive ||
+                (to.length > 1 && currentPath.startsWith(to + "/"))
+
+            const classes: string[] = []
+            if (isActive) classes.push("router-link-active")
+            if (isExactActive) classes.push("router-link-exact-active")
+
+            return h(
+                "a",
+                { href: to, class: classes.join(" ") || undefined },
+                slots.default?.()
+            )
+        }
+    },
+})
+
+export const RouterView = defineComponent({
+    name: "RouterView",
+    setup() {
+        const router = inject(Symbol.for("vterm-router"))
+        if (!router) {
+            throw new Error("RouterView must be used within a router context")
+        }
+
+        const routes = (inject("vterm-routes") as Route[]) || []
+        const NotFoundComponent = inject("vterm-error-not-found") as any
+        const ServerErrorComponent = inject("vterm-error-server") as any
+
+        return () => {
+            const currentPath = (router as any).currentPath.value
+            const route = (router as any).currentRoute.value
+
+
+            const matchedRoute = routes.find(r => {
+                const { match } = matchRoute(r.path, currentPath)
+                return match
+            })
+
+
+            if (!matchedRoute) {
+                if (NotFoundComponent) {
+                    return h(NotFoundComponent)
+                }
+                return h("div", { width: "100%", height: "100%" }, [
+                    h("p", `404: Route not found - ${currentPath}`),
+                ])
+            }
+
+
+            if (!matchedRoute.component) {
+                console.warn("[RouterView] No component for route:", matchedRoute.path)
+                if (NotFoundComponent) {
+                    return h(NotFoundComponent)
+                }
+                return h("div", { width: "100%", height: "100%" }, [
+                    h("p", `404: No component for route - ${matchedRoute.path}`),
+                ])
+            }
+
+            try {
+                return h(matchedRoute.component, {
+                    ...route.params,
+                    route,
+                })
+            } catch (error) {
+                console.error("[RouterView] Error rendering component:", error)
+                if (ServerErrorComponent) {
+                    return h(ServerErrorComponent)
+                }
+                return h("div", { width: "100%", height: "100%" }, [
+                    h("p", "500: Internal Server Error"),
+                    h("p", String(error)),
+                ])
+            }
+        }
+    },
+})

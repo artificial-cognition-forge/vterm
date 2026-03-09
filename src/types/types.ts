@@ -1,0 +1,154 @@
+import type { App } from "vue"
+import type { BundledTheme, BundledLanguage } from "shiki"
+import type { TerminalDriver } from "../runtime/terminal/driver"
+
+/**
+ * Text selection highlight configuration
+ */
+export interface SelectionConfig {
+    /** Selection highlight color — hex (#rrggbb) or named terminal color (default: '#4a7bc4') */
+    color?: string
+    /** Blend opacity 0–1: 0 = fully transparent, 1 = solid color (default: 0.4) */
+    opacity?: number
+}
+
+/**
+ * Syntax highlighting configuration (powered by Shiki)
+ */
+export interface HighlightConfig {
+    /** Shiki theme to use for syntax highlighting (default: 'github-dark') */
+    theme?: BundledTheme
+    /** Additional languages to preload beyond the built-in common set */
+    langs?: BundledLanguage[]
+}
+
+/**
+ * Terminal screen configuration options
+ */
+export interface ScreenOptions {
+    title?: string
+    smartCSR?: boolean
+    fullUnicode?: boolean
+    dockBorders?: boolean
+    ignoreDockContrast?: boolean
+    [key: string]: any
+}
+
+/**
+ * Configuration file format for vterm.config.ts
+ * Used by the CLI dev server
+ */
+export interface VTermConfig {
+    /** Path to Vue SFC entry point (ignored if using file-based routing with app/pages) */
+    entry?: string
+
+    /** Optional path to layout component (default: app/app.vue if it exists) */
+    layout?: string | false
+
+    /** Optional terminal screen configuration */
+    screen?: ScreenOptions
+
+    /** Quit keys (default: ['C-c']) */
+    quitKeys?: string[]
+
+    /** Storage configuration */
+    store?: {
+        /** Custom data directory for stores (overrides platform defaults) */
+        dataDir?: string
+    }
+
+    /** Error pages configuration */
+    errorPages?: {
+        /** Path to custom 404 error page component (default: built-in 404 component) */
+        notFound?: string
+        /** Path to custom 500 error page component (default: built-in 500 component) */
+        serverError?: string
+    }
+
+    /** Syntax highlighting configuration */
+    highlight?: HighlightConfig
+
+    /** Text selection highlight style */
+    selection?: SelectionConfig
+
+    /** npm deployment configuration */
+    npm?: {
+        /** npm package name (defaults to package.json name) */
+        name?: string
+        /** npm registry URL (default: https://registry.npmjs.org) */
+        registry?: string
+        /** Package access level (default: 'public') */
+        access?: 'public' | 'restricted'
+    }
+}
+
+/**
+ * Define a vterm config with sensible defaults.
+ * Use this in your vterm.config.ts instead of a plain object.
+ */
+export function defineVtermConfig(config: Partial<VTermConfig> = {}): VTermConfig {
+    return {
+        ...config,
+        screen: { title: 'VTerm', ...config.screen },
+        quitKeys: config.quitKeys ?? ['C-c'],
+    }
+}
+
+/**
+ * Runtime options for vterm() function
+ */
+export interface VTermOptions {
+    /** Path to Vue SFC entry point (ignored if using file-based routing) */
+    entry?: string
+
+    /** Optional path to layout component (default: app/app.vue if it exists) */
+    layout?: string | false
+
+    /** Called after the app is mounted */
+    onMounted?: (app: VTermApp) => void
+
+    /** Quit keys (default: ['C-c']) */
+    quitKeys?: string[]
+
+    /** Storage configuration */
+    store?: {
+        /** Custom data directory for stores (overrides platform defaults) */
+        dataDir?: string
+    }
+
+    /** Error pages configuration */
+    errorPages?: {
+        /** Path to custom 404 error page component */
+        notFound?: string
+        /** Path to custom 500 error page component */
+        serverError?: string
+    }
+
+    /** Syntax highlighting configuration */
+    highlight?: HighlightConfig
+
+    /** Text selection highlight style */
+    selection?: SelectionConfig
+}
+
+/**
+ * VTerm application instance
+ */
+export interface VTermApp {
+    /** Terminal driver instance (for backwards compatibility, exposed as 'screen') */
+    screen: TerminalDriver
+
+    /** Vue app instance */
+    app: App
+
+    /** Unmount the app and cleanup */
+    unmount: () => void
+
+    /** Manually trigger a screen render */
+    render: () => void
+}
+
+/**
+ * Re-export store types for convenience
+ */
+export type { Store, StoreOptions } from "../core/platform/store/store"

@@ -1,0 +1,3 @@
+{
+  "extends": "./.vterm/tsconfig.json",
+}

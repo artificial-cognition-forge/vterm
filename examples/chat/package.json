@@ -1,0 +1,14 @@
+{
+  "name": "chat",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vterm dev",
+    "prepare": "vterm prepare"
+  },
+  "devDependencies": {
+    "@arclabs/vterm": "latest",
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}
