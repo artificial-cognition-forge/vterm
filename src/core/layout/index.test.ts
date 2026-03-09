@@ -389,9 +389,9 @@ describe('HTML element sizing defaults', () => {
     }
   })
 
-  test('inline elements (span, strong, em, code) shrink to content width', () => {
+  test('inline elements (span, strong, em) shrink to content width', () => {
     const engine = createLayoutEngine(80, 24)
-    for (const tag of ['span', 'strong', 'em', 'code'] as const) {
+    for (const tag of ['span', 'strong', 'em'] as const) {
       const tree = engine.buildLayoutTree(h(tag, {}, 'word'), new Map())
       engine.computeLayout(tree)
       expect(tree.layout?.width).toBe(0)

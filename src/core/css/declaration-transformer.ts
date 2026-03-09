@@ -366,7 +366,7 @@ case 'color': {
       break
     case 'vertical-align':
       if (value === 'middle' || value === 'top' || value === 'bottom') {
-        ;(props as any).valign = value
+        props.verticalAlign = value as 'top' | 'middle' | 'bottom'
       }
       break
 

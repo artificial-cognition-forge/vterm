@@ -134,20 +134,30 @@ export class RenderingPass {
 
     // Process each layer (z-index level) in order
     for (let layerIdx = 0; layerIdx < context.renderOrder.length; layerIdx++) {
-      const layer = context.renderOrder[layerIdx]
+      const layer = context.renderOrder[layerIdx]!
 
       const layerZIdx = typeof layer.zIndex === "number" ? layer.zIndex : 0
+
+      // Determine which parentScrollY to use for this layer:
+      // - For root-background: use parentScrollY (not context's own scrollY)
+      // - For other layers: use contextScrollY (includes context's scrollY)
+      const layerParentScrollY = layer.zIndex === -Infinity ? parentScrollY : contextScrollY
 
       // First pass for this z-index: render backgrounds and borders
       this.isTextPass = false
       for (const node of layer.nodes) {
-        this.renderNode(node, context, contextScrollY, contextClipBox)
+        // When rendering nodes from layers, compute the appropriate clipBox
+        // based on this node's parents' viewports
+        const nodeClipBox = this.computeClipBoxFromAncestors(node, contextClipBox)
+        this.renderNode(node, context, layerParentScrollY, nodeClipBox)
       }
 
       // Second pass for this z-index: render text content
       this.isTextPass = true
       for (const node of layer.nodes) {
-        this.renderNode(node, context, contextScrollY, contextClipBox)
+        // When rendering nodes from layers, compute the appropriate clipBox
+        const nodeClipBox = this.computeClipBoxFromAncestors(node, contextClipBox)
+        this.renderNode(node, context, layerParentScrollY, nodeClipBox)
       }
 
       // Render nested stacking contexts that are at this z-index level
@@ -215,6 +225,44 @@ export class RenderingPass {
         this.renderScrollbar(node, parentScrollY)
       }
     }
+  }
+
+  /**
+   * Compute the clipBox for a node based on its ancestors' viewports
+   */
+  private computeClipBoxFromAncestors(node: LayoutNode, contextClipBox?: ClipBox): ClipBox | undefined {
+    let clipBox = contextClipBox
+
+    // Walk up the parent chain and apply each parent's viewport as a clip boundary
+    let current = node.parent
+    while (current && current.layout) {
+      const parentClip: ClipBox = {
+        x: current.layout.x,
+        y: current.layout.y,
+        width: current.layout.width,
+        height: current.layout.height,
+      }
+
+      if (clipBox) {
+        // Intersect with existing clipBox
+        const x = Math.max(clipBox.x, parentClip.x)
+        const y = Math.max(clipBox.y, parentClip.y)
+        const right = Math.min(clipBox.x + clipBox.width, parentClip.x + parentClip.width)
+        const bottom = Math.min(clipBox.y + clipBox.height, parentClip.y + parentClip.height)
+        clipBox = {
+          x,
+          y,
+          width: Math.max(0, right - x),
+          height: Math.max(0, bottom - y),
+        }
+      } else {
+        clipBox = parentClip
+      }
+
+      current = current.parent
+    }
+
+    return clipBox
   }
 
   /**
@@ -458,7 +506,16 @@ export class RenderingPass {
 
       const scrollOffset = node.scrollY
       const textAlign = node.layoutProps.textAlign
+      const verticalAlign = node.layoutProps.verticalAlign
       const lines = content.split("\n")
+
+      // Calculate vertical offset based on verticalAlign
+      let verticalOffset = 0
+      if (verticalAlign === 'middle') {
+        verticalOffset = Math.floor((contentHeight - lines.length) / 2)
+      } else if (verticalAlign === 'bottom') {
+        verticalOffset = Math.max(0, contentHeight - lines.length)
+      }
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i] || ""
@@ -468,7 +525,7 @@ export class RenderingPass {
         const visibleIndex = i - scrollOffset
         if (visibleIndex >= contentHeight) break
 
-        const y = contentY + visibleIndex
+        const y = contentY + verticalOffset + visibleIndex
 
         if (clipBox && (y < clipBox.y || y >= clipBox.y + clipBox.height)) continue
 

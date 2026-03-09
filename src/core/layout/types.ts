@@ -138,6 +138,7 @@ export interface LayoutProperties {
 
     // Text alignment
     textAlign?: 'left' | 'center' | 'right'
+    verticalAlign?: 'top' | 'middle' | 'bottom'
 
     // Scroll support
     scrollable?: boolean
