@@ -48,10 +48,15 @@ function ensureVisualStyles(props: LayoutProperties): VisualStyle {
 export function transformDeclaration(prop: string, value: string, props: LayoutProperties): void {
   switch (prop) {
     // Colors (visual styles)
-    case 'color': {
-      const visual = ensureVisualStyles(props)
-      visual.fg = parseColor(value)
-      break
+case 'color': {
+      const visual = ensureVisualStyles(props);
+      if (value.trim().toLowerCase() === 'transparent') {
+        visual.transparent = true;
+        visual.fg = undefined;
+      } else {
+        visual.fg = parseColor(value);
+      }
+      break;
     }
     case 'background':
     case 'background-color': {

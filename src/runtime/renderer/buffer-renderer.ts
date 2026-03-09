@@ -275,7 +275,7 @@ export class BufferRenderer {
         const cellStyle = this.visualStyleToCellStyle(style)
 
         // Fill background
-        if (style.bg || style.transparent === false) {
+        if (style.bg && style.transparent !== true) {
             let fillX = layout.x
             let fillW = layout.width
             let fillY = adjustedY

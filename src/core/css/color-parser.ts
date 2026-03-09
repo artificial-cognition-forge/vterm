@@ -191,7 +191,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
  * Supports: basic colors, CSS named colors, hex colors, rgb/rgba, hsl/hsla, 256-color palette
  * All CSS named colors are converted to hex for maximum terminal compatibility
  */
-export function parseColor(value: string): string {
+export function parseColor(value: string): string | null {
   value = value.trim().toLowerCase()
 
   // Hex colors - blessed supports these directly
@@ -201,15 +201,22 @@ export function parseColor(value: string): string {
     if (value.length === 9) {
       return value.substring(0, 7) // #RRGGBB
     }
-    // Also handle short form with alpha (#RGBA)
-    if (value.length === 5) {
-      // Convert #RGBA to #RRGGBB (expand and strip alpha)
-      const r = value[1]
-      const g = value[2]
-      const b = value[3]
-      return `#${r}${r}${g}${g}${b}${b}`
-    }
-    return value
+// Also handle short form with alpha (#RGBA)
+      if (value.length === 5) {
+        // Convert #RGBA to #RRGGBB (expand and strip alpha)
+        const r = value[1]
+        const g = value[2]
+        const b = value[3]
+        return `#${r}${r}${g}${g}${b}${b}`
+      }
+      // Handle 3‑digit hex shorthand (#RGB) – expand to #RRGGBB
+      if (value.length === 4) {
+        const r = value[1]
+        const g = value[2]
+        const b = value[3]
+        return `#${r}${r}${g}${g}${b}${b}`
+      }
+      return value
   }
 
   // RGB/RGBA - convert to hex
@@ -247,9 +254,10 @@ export function parseColor(value: string): string {
   }
 
   // CSS named colors - convert to hex for compatibility
-  if (CSS_COLORS[value]) {
-    return CSS_COLORS[value]
-  }
+if (CSS_COLORS[value]) {
+      // CSS named color converted to hex – ensure string type
+      return CSS_COLORS[value] as string
+    }
 
   // Basic terminal colors - keep as-is (terminals understand these natively)
   if (BASIC_COLORS.includes(value as any)) {

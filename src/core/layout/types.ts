@@ -36,6 +36,9 @@ export interface VisualStyle {
     inverse?: boolean
     invisible?: boolean
     transparent?: boolean
+  italic?: boolean
+  dim?: boolean
+  opacity?: number
 
     // Border styling
     border?: {

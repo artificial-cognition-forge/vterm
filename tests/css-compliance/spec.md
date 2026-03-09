@@ -31,6 +31,9 @@ Key differences from the browser DOM:
 
 **Test file:** `01-color.test.ts`
 
+> TODO: Add full support for opacity. Currently rgba opacity is ignored completely, and likely other formats. We should be able to get full css color parity with all css color inputs. The goal is to support all css color names and input types top to bottom.
+
+
 ### 1.1 Foreground color (`color`)
 
 Sets the `color` field on rendered cells.
@@ -419,6 +422,19 @@ VTerm uses `postcss-nested` to support nested CSS rules, processed before parsin
 | `opacity`    | `1.0`     | No effect (fully opaque, default)              | ✅      |
 
 ---
+
+## 17. Z Index : TODO!
+
+> Z-index is not implemented. We want to add support ASAP for z-index.
+
+**Test file:** `17-z-index.test.ts`
+
+| Property     | Value      | Effect                                         | Support |
+|-------------|-----------|------------------------------------------------|---------|
+| z-index      | Integer    | Stacking order (higher = drawn later)          | ✅      |
+
+
+
 
 ## Out of Scope (will not be tested)
 
