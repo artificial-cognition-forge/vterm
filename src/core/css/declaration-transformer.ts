@@ -548,5 +548,12 @@ case 'color': {
         props.pointerEvents = value
       }
       break
+
+    // Text wrapping
+    case 'white-space':
+      if (value === 'normal' || value === 'nowrap' || value === 'pre' || value === 'pre-wrap' || value === 'pre-line') {
+        props.whiteSpace = value
+      }
+      break
   }
 }

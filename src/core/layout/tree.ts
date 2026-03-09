@@ -18,6 +18,7 @@ import type {
 import { computeFlexLayout, getFlexConfig, isFlexContainer, resolveDimension } from "./flexbox"
 import { getPadding, getMargin, getBorder, applyConstraints } from "./box-model"
 import { isScrollableNode } from "./utils"
+import { wrapText } from "./text-wrapper"
 
 /**
  * Counter for generating unique node IDs
@@ -604,6 +605,38 @@ export class LayoutEngine {
     }
 
     /**
+     * Apply text wrapping to a node's content based on CSS white-space rules
+     * Updates node.content with wrapped text and returns the number of lines
+     */
+    private applyTextWrapping(node: LayoutNode, contentWidth: number): number {
+        // Only wrap if there's actual content and positive width
+        if (!node.content || contentWidth <= 0) {
+            return 0
+        }
+
+        const whiteSpace = node.layoutProps.whiteSpace ?? 'normal'
+
+        // For terminal rendering, if content already has explicit newlines,
+        // preserve them and only wrap each line individually (don't collapse them)
+        if (node.content.includes('\n')) {
+            // Split by newlines, wrap each line separately, rejoin
+            const lines = node.content.split('\n')
+            const wrappedAll: string[] = []
+            for (const line of lines) {
+                const wrappedLines = wrapText(line, contentWidth, 'pre-line')
+                wrappedAll.push(...wrappedLines)
+            }
+            node.content = wrappedAll.join('\n')
+            return wrappedAll.length
+        }
+
+        // No explicit newlines: apply full text wrapping with white-space semantics
+        const wrappedLines = wrapText(node.content, contentWidth, whiteSpace)
+        node.content = wrappedLines.join('\n')
+        return wrappedLines.length
+    }
+
+    /**
      * Compute layout for a single node and its children
      */
     private computeNodeLayout(
@@ -643,6 +676,24 @@ export class LayoutEngine {
         // Resolve dimensions
         let width = resolveDimension(layoutProps.width, containerWidth, defaultWidth)
         let height = resolveDimension(layoutProps.height, containerHeight, defaultHeight)
+
+        // Apply text wrapping if this node has content that needs wrapping
+        // Skip wrapping for elements that preserve whitespace (pre, pre-wrap, pre-line, nowrap)
+        // or for code elements (which default to pre)
+        const whiteSpace = layoutProps.whiteSpace ?? (node.type === 'code' ? 'pre' : 'normal')
+        const shouldWrap = node.content &&
+            whiteSpace === 'normal' &&
+            node.type !== 'code' &&
+            node.type !== 'pre'
+
+        if (shouldWrap) {
+            const contentWidth = width - border.width * 2
+            const wrappedLineCount = this.applyTextWrapping(node, contentWidth)
+            // If height was not explicitly set, update it based on wrapped content
+            if (!layoutProps.height && wrappedLineCount > 0) {
+                height = wrappedLineCount
+            }
+        }
 
         // Apply constraints
         const constrained = applyConstraints(width, height, layoutProps)

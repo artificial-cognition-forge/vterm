@@ -136,9 +136,10 @@ export interface LayoutProperties {
     // Visual styles
     visualStyles?: VisualStyle
 
-    // Text alignment
+    // Text alignment and wrapping
     textAlign?: 'left' | 'center' | 'right'
     verticalAlign?: 'top' | 'middle' | 'bottom'
+    whiteSpace?: 'normal' | 'nowrap' | 'pre' | 'pre-wrap' | 'pre-line'
 
     // Scroll support
     scrollable?: boolean
