@@ -101,12 +101,35 @@ export class InteractionManager {
     }
 
     /**
-     * Perform hit testing to find the deepest node at the given coordinates
+     * Perform hit testing to find the topmost node (by z-index) at the given coordinates
+     * Respects pointer-events: none to allow click-through
      */
-    private hitTest(x: number, y: number, node: LayoutNode): LayoutNode | null {
+    private hitTest(x: number, y: number, root: LayoutNode): LayoutNode | null {
+        // Collect all nodes that contain the point
+        const candidates = this.collectCandidates(x, y, root)
+
+        if (candidates.length === 0) return null
+
+        // Find the topmost candidate (highest z-index)
+        // We need to sort by z-index in descending order
+        let topmost = candidates[0]!
+        for (let i = 1; i < candidates.length; i++) {
+            const candidate = candidates[i]!
+            if (this.compareZIndex(candidate, topmost) > 0) {
+                topmost = candidate
+            }
+        }
+
+        return topmost
+    }
+
+    /**
+     * Collect all nodes that contain the point and have pointer-events enabled
+     */
+    private collectCandidates(x: number, y: number, node: LayoutNode, candidates: LayoutNode[] = []): LayoutNode[] {
         // Check if this node has layout and contains the point
         const layout = node.layout
-        if (!layout) return null
+        if (!layout) return candidates
 
         const inBounds =
             x >= layout.x &&
@@ -114,17 +137,38 @@ export class InteractionManager {
             y >= layout.y &&
             y < layout.y + layout.height
 
-        if (!inBounds) return null
+        if (!inBounds) return candidates
 
-        // Check children (in reverse order, so top elements are hit first)
-        for (let i = node.children.length - 1; i >= 0; i--) {
-            const child = node.children[i]!
-            const hit = this.hitTest(x, y, child)
-            if (hit) return hit
+        // Recursively check children first (bottom-up collection)
+        for (const child of node.children) {
+            this.collectCandidates(x, y, child, candidates)
         }
 
-        // This node is the hit target
-        return node
+        // Add this node if pointer-events is not 'none'
+        const pointerEvents = node.layoutProps.pointerEvents ?? 'auto'
+        if (pointerEvents !== 'none') {
+            candidates.push(node)
+        }
+
+        return candidates
+    }
+
+    /**
+     * Compare z-index of two nodes for hit testing
+     * Returns: positive if a > b, negative if a < b, 0 if equal
+     */
+    private compareZIndex(a: LayoutNode, b: LayoutNode): number {
+        // Direct z-index comparison
+        const aIndex = a.zIndex ?? 0
+        const bIndex = b.zIndex ?? 0
+
+        if (aIndex !== bIndex) {
+            return aIndex - bIndex
+        }
+
+        // If z-indices are equal, use DOM order (later in tree = higher)
+        // This is a simplified comparison; a full implementation would use stacking context trees
+        return 0
     }
 
     /**

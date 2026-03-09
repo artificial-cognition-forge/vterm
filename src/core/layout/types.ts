@@ -146,6 +146,9 @@ export interface LayoutProperties {
     scrollableX?: boolean
     scrollableY?: boolean
 
+    // Pointer events
+    pointerEvents?: "auto" | "none"
+
     // Pseudo-states (can override any layout property)
     hover?: Partial<LayoutProperties>
     focus?: Partial<LayoutProperties>

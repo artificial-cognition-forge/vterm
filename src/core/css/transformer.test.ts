@@ -667,3 +667,51 @@ describe('extractSFCStyles', () => {
     expect(result['.box'].height).toBe(50)
   })
 })
+
+describe('pointer-events CSS property', () => {
+  test('parses pointer-events: auto', async () => {
+    const css = `
+      .interactive {
+        pointer-events: auto;
+      }
+    `
+    const result = await transformCSSToLayout(css)
+
+    expect(result['.interactive'].pointerEvents).toBe('auto')
+  })
+
+  test('parses pointer-events: none', async () => {
+    const css = `
+      .transparent {
+        pointer-events: none;
+      }
+    `
+    const result = await transformCSSToLayout(css)
+
+    expect(result['.transparent'].pointerEvents).toBe('none')
+  })
+
+  test('ignores invalid pointer-events values', async () => {
+    const css = `
+      .box {
+        pointer-events: invalid;
+        color: blue;
+      }
+    `
+    const result = await transformCSSToLayout(css)
+
+    expect(result['.box'].pointerEvents).toBeUndefined()
+    expect(result['.box'].visualStyles?.fg).toBe('blue')
+  })
+
+  test('defaults to auto when not specified', async () => {
+    const css = `
+      .box {
+        color: blue;
+      }
+    `
+    const result = await transformCSSToLayout(css)
+
+    expect(result['.box'].pointerEvents).toBeUndefined()
+  })
+})

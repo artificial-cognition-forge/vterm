@@ -541,5 +541,12 @@ case 'color': {
         }
       }
       break
+
+    // Pointer events
+    case 'pointer-events':
+      if (value === 'auto' || value === 'none') {
+        props.pointerEvents = value
+      }
+      break
   }
 }
