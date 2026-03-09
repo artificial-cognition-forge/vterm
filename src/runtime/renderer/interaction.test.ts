@@ -331,4 +331,116 @@ describe('InteractionManager - Mouse Events', () => {
         // This test just verifies the event routing works
         expect(true).toBe(true)
     })
+
+    describe('textarea wheel scrolling', () => {
+        it('should scroll textarea down on wheeldown event', () => {
+            const manager = new InteractionManager()
+
+            // Create textarea with layout and content
+            const textarea = createNode('textarea', 5, 5, 30, 10)
+            textarea.type = 'textarea'
+            textarea.layout!.border.width = 1
+            textarea.contentHeight = 25 // More content than viewport height
+            textarea.scrollY = 0
+
+            // Root node
+            const root = createNode('root', 0, 0, 80, 24, { children: [textarea] })
+
+            manager.updateFocusableNodes(root)
+
+            // Scroll down
+            const event = {
+                type: 'wheeldown' as const,
+                button: 'none' as const,
+                x: 20,
+                y: 10,
+                ctrl: false,
+                shift: false,
+                meta: false,
+            }
+            manager.handleMouseEvent(event, root)
+
+            expect(textarea.scrollY).toBeGreaterThan(0)
+        })
+
+        it('should scroll textarea up on wheelup event', () => {
+            const manager = new InteractionManager()
+
+            // Create textarea
+            const textarea = createNode('textarea', 5, 5, 30, 10)
+            textarea.type = 'textarea'
+            textarea.layout!.border.width = 1
+            textarea.contentHeight = 25
+            textarea.scrollY = 10 // Start scrolled down
+
+            const root = createNode('root', 0, 0, 80, 24, { children: [textarea] })
+
+            manager.updateFocusableNodes(root)
+
+            // Scroll up
+            const event = {
+                type: 'wheelup' as const,
+                button: 'none' as const,
+                x: 20,
+                y: 10,
+                ctrl: false,
+                shift: false,
+                meta: false,
+            }
+            manager.handleMouseEvent(event, root)
+
+            expect(textarea.scrollY).toBeLessThan(10)
+        })
+
+        it('should not scroll above 0', () => {
+            const manager = new InteractionManager()
+
+            const textarea = createNode('textarea', 5, 5, 30, 10)
+            textarea.type = 'textarea'
+            textarea.layout!.border.width = 1
+            textarea.contentHeight = 25
+            textarea.scrollY = 0
+
+            const root = createNode('root', 0, 0, 80, 24, { children: [textarea] })
+            manager.updateFocusableNodes(root)
+
+            // Scroll up (should stay at 0)
+            for (let i = 0; i < 5; i++) {
+                manager.handleMouseEvent(
+                    { type: 'wheelup', button: 'none', x: 20, y: 10, ctrl: false, shift: false, meta: false },
+                    root
+                )
+            }
+
+            expect(textarea.scrollY).toBe(0)
+        })
+
+        it('should not scroll beyond content', () => {
+            const manager = new InteractionManager()
+
+            const textarea = createNode('textarea', 5, 5, 30, 10)
+            textarea.type = 'textarea'
+            textarea.layout!.border.width = 1
+            textarea.layout!.padding = { top: 1, bottom: 1, left: 1, right: 1 }
+            textarea.contentHeight = 25
+            textarea.scrollY = 0
+
+            const root = createNode('root', 0, 0, 80, 24, { children: [textarea] })
+            manager.updateFocusableNodes(root)
+
+            // Calculate max scroll
+            const viewportHeight = 10 - 2 * 1 - 1 - 1 // height - borders - padding
+            const maxScroll = Math.max(0, 25 - viewportHeight)
+
+            // Scroll down many times
+            for (let i = 0; i < 100; i++) {
+                manager.handleMouseEvent(
+                    { type: 'wheeldown', button: 'none', x: 20, y: 10, ctrl: false, shift: false, meta: false },
+                    root
+                )
+            }
+
+            expect(textarea.scrollY).toBeLessThanOrEqual(maxScroll)
+        })
+    })
 })

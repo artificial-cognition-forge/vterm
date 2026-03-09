@@ -16,6 +16,7 @@ function ensureState(node: LayoutNode): void {
     if (node._inputValue === undefined) {
         node._inputValue = getValue(node)
         node._cursorPos = node._inputValue.length
+        node._prevCursorPos = node._cursorPos
     }
 }
 
@@ -230,10 +231,28 @@ const textareaBehavior: ElementBehavior = {
         // Track content height for scrollbar rendering
         node.contentHeight = visualLines.length
 
-        // Adjust vertical scroll so the cursor stays visible
-        let scrollY = node.scrollY
-        if (cursorVLine < scrollY) scrollY = cursorVLine
-        if (cursorVLine >= scrollY + contentHeight) scrollY = cursorVLine - contentHeight + 1
+        // Adjust vertical scroll so the cursor stays visible, but preserve manual scrolling
+        let scrollY = node.scrollY ?? 0
+
+        // Only auto-scroll if the cursor position CHANGED (keyboard navigation)
+        // This prevents resetting scroll after mouse wheel scrolling
+        const prevCursorPos = node._prevCursorPos ?? cursorPos
+        const cursorMoved = cursorPos !== prevCursorPos
+        node._prevCursorPos = cursorPos
+
+        if (cursorMoved) {
+            // Cursor position changed - auto-scroll to keep it visible
+            if (cursorVLine < scrollY) {
+                scrollY = cursorVLine
+            } else if (cursorVLine >= scrollY + contentHeight) {
+                scrollY = cursorVLine - contentHeight + 1
+            }
+        }
+        // Otherwise, preserve scroll (from mouse wheel or previous state)
+
+        // Clamp to valid range
+        const maxScroll = Math.max(0, visualLines.length - contentHeight)
+        scrollY = Math.min(scrollY, maxScroll)
         node.scrollY = scrollY
 
         // Render visual lines
