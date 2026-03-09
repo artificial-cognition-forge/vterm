@@ -187,6 +187,25 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 }
 
 /**
+ * Convert CSS angle units to degrees
+ */
+function angleToDegreesFunction(valueStr: string): number | null {
+  const match = valueStr.match(/^([\d.]+)(deg|rad|grad|turn)?$/)
+  if (!match || !match[1]) return null
+
+  const value = parseFloat(match[1])
+  const unit = match[2] || 'deg'
+
+  switch (unit) {
+    case 'deg': return value
+    case 'rad': return (value * 180) / Math.PI
+    case 'grad': return (value * 180) / 200
+    case 'turn': return value * 360
+    default: return value
+  }
+}
+
+/**
  * Parse a color value from CSS to blessed format
  * Supports: basic colors, CSS named colors, hex colors, rgb/rgba, hsl/hsla, 256-color palette
  * All CSS named colors are converted to hex for maximum terminal compatibility
@@ -194,65 +213,115 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 export function parseColor(value: string): string | null {
   value = value.trim().toLowerCase()
 
+  // Handle transparent keyword
+  if (value === 'transparent') {
+    return null
+  }
+
   // Hex colors - blessed supports these directly
   if (value.startsWith('#')) {
-    // Strip alpha channel if present (8-digit hex: #RRGGBBAA)
-    // Terminals don't support alpha, so we just use RGB portion
+    // Handle 8-digit hex with alpha (#RRGGBBAA) - strip alpha
     if (value.length === 9) {
       return value.substring(0, 7) // #RRGGBB
     }
-// Also handle short form with alpha (#RGBA)
-      if (value.length === 5) {
-        // Convert #RGBA to #RRGGBB (expand and strip alpha)
-        const r = value[1]
-        const g = value[2]
-        const b = value[3]
-        return `#${r}${r}${g}${g}${b}${b}`
-      }
-      // Handle 3‑digit hex shorthand (#RGB) – expand to #RRGGBB
-      if (value.length === 4) {
-        const r = value[1]
-        const g = value[2]
-        const b = value[3]
-        return `#${r}${r}${g}${g}${b}${b}`
-      }
+    // Handle 4-digit hex with alpha (#RGBA) - expand and strip alpha
+    if (value.length === 5) {
+      const r = value[1]
+      const g = value[2]
+      const b = value[3]
+      return `#${r}${r}${g}${g}${b}${b}`
+    }
+    // Handle 3-digit hex shorthand (#RGB) - expand to #RRGGBB
+    if (value.length === 4) {
+      const r = value[1]
+      const g = value[2]
+      const b = value[3]
+      return `#${r}${r}${g}${g}${b}${b}`
+    }
+    // Handle 6-digit hex (#RRGGBB) - pass through as-is
+    if (value.length === 7) {
       return value
+    }
+    // Invalid hex format
+    return null
   }
 
   // RGB/RGBA - convert to hex (supports percentages and whitespace)
+  // Alpha channel reduces color intensity (simulates opacity in terminals)
   if (value.startsWith('rgb')) {
-    const start = value.indexOf('(');
-    const end = value.lastIndexOf(')');
-    if (start === -1 || end === -1) return null;
-    const inner = value.slice(start + 1, end);
-    const parts = inner.split(',').map(p => p.trim());
+    const start = value.indexOf('(')
+    const end = value.lastIndexOf(')')
+    if (start === -1 || end === -1) return null
+    const inner = value.slice(start + 1, end)
+    const parts = inner.split(',').map(p => p.trim())
     if (parts.length >= 3) {
       const to255 = (v: string) => {
+        v = v.trim()
         if (v.endsWith('%')) {
-          return Math.round(parseFloat(v) * 2.55);
+          const percent = parseFloat(v.slice(0, -1))
+          if (isNaN(percent)) return NaN
+          return Math.round(percent * 255 / 100)
         }
-        return parseInt(v, 10);
-      };
-      const r = to255(parts[0]!);
-      const g = to255(parts[1]!);
-      const b = to255(parts[2]!);
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        const num = parseInt(v, 10)
+        return isNaN(num) ? NaN : num
+      }
+      let r = to255(parts[0]!)
+      let g = to255(parts[1]!)
+      let b = to255(parts[2]!)
+
+      // Validate all values are in range
+      if (isNaN(r) || isNaN(g) || isNaN(b) || r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
+        return null
+      }
+
+      // Apply alpha channel to reduce color intensity (simulate opacity in terminals)
+      // rgba(146, 24, 24, 0.5) → half intensity by multiplying each channel by alpha
+      if (parts.length >= 4) {
+        const alphaStr = parts[3]!.trim()
+        const alpha = parseFloat(alphaStr)
+        if (!isNaN(alpha) && alpha >= 0 && alpha <= 1) {
+          r = Math.round(r * alpha)
+          g = Math.round(g * alpha)
+          b = Math.round(b * alpha)
+        }
+      }
+
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
     }
+    return null
   }
 
-  // HSL/HSLA - convert to hex
+  // HSL/HSLA - convert to hex (supports angle units: deg, rad, grad, turn)
+  // Alpha channel reduces color intensity (simulates opacity in terminals)
   if (value.startsWith('hsl')) {
-    const match = value.match(/hsla?\(\s*(\d+)\s*,\s*(\d+)%?\s*,\s*(\d+)%?/)
+    // Match hsla?(angle, saturation%, lightness%, [alpha])
+    // Angle can have units: deg, rad, grad, turn
+    const match = value.match(/hsla?\(\s*([\d.]+(?:deg|rad|grad|turn)?)\s*,\s*([\d.]+)%?\s*,\s*([\d.]+)%?\s*(?:,\s*([\d.]+))?\s*\)/)
     if (match && match[1] && match[2] && match[3]) {
-      const h = parseInt(match[1])
-      const s = parseInt(match[2])
-      const l = parseInt(match[3])
+      const hDeg = angleToDegreesFunction(match[1])
+      const s = parseFloat(match[2])
+      const l = parseFloat(match[3])
 
-      const [r, g, b] = hslToRgb(h, s, l)
+      if (hDeg === null || isNaN(s) || isNaN(l) || s < 0 || s > 100 || l < 0 || l > 100) {
+        return null
+      }
+
+      let [r, g, b] = hslToRgb(hDeg, s, l)
+
+      // Apply alpha channel to reduce color intensity (simulate opacity in terminals)
+      if (match[4]) {
+        const alpha = parseFloat(match[4])
+        if (!isNaN(alpha) && alpha >= 0 && alpha <= 1) {
+          r = Math.round(r * alpha)
+          g = Math.round(g * alpha)
+          b = Math.round(b * alpha)
+        }
+      }
 
       // Convert to hex
       return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
     }
+    return null
   }
 
   // 256-color palette (0-255) - blessed supports these as numbers
@@ -262,18 +331,17 @@ export function parseColor(value: string): string | null {
   }
 
   // CSS named colors - convert to hex for compatibility
-if (CSS_COLORS[value]) {
-      // CSS named color converted to hex – ensure string type
-      return CSS_COLORS[value] as string
-    }
+  if (CSS_COLORS[value]) {
+    return CSS_COLORS[value] as string
+  }
 
   // Basic terminal colors - keep as-is (terminals understand these natively)
   if (BASIC_COLORS.includes(value as any)) {
     return value
   }
 
-  // Fallback - return as-is
-  return value
+  // Invalid color - return null instead of passing through
+  return null
 }
 
 /**

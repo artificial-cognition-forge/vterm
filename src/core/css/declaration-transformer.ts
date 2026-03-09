@@ -522,10 +522,24 @@ case 'color': {
     case 'tags':
     case 'baseLimit':
     case 'scrollbar':
-    case 'z-index':
     case 'cursor':
       // Store platform-specific properties as-is for blessed adapter
       ;(props as any)[prop] = value
+      break
+
+    // Stacking context
+    case 'z-index':
+      if (value === 'auto' || value === 'inherit') {
+        props.zIndex = 'auto'
+      } else {
+        // Match optional negative sign followed by digits (with optional decimal)
+        const match = value.trim().match(/^(-?\d+(?:\.\d+)?)$/)
+        if (match) {
+          props.zIndex = Math.floor(parseFloat(match[1]))
+        } else {
+          props.zIndex = 'auto'
+        }
+      }
       break
   }
 }

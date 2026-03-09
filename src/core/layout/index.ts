@@ -41,6 +41,14 @@ export type { FlexConfig } from './flexbox'
 // Utilities
 export { isScrollableNode } from './utils'
 
+// Stacking Contexts
+export {
+  detectStackingContext,
+  buildStackingContextTree,
+} from './stacking-context'
+
+export type { StackingContext, StackingContextLayer } from './stacking-context'
+
 // Box Model
 export {
   normalizeSpacing,

@@ -48,18 +48,13 @@ describe('color — hex values', () => {
     expect(cellColor(buf, 0, 0)).toBe('#ff6600')
   })
 
-  // BUG: 3-digit hex shorthand (#RGB) is not expanded — only #RGBA (4-digit) is handled.
-  // color-parser.ts checks value.length === 5 (#RGBA) but not length === 4 (#RGB).
-  // Fix: add a length === 4 branch in parseColor() that expands #RGB → #RRGGBB.
-  test('BUG: #RGB passthrough (not expanded — should be #RRGGBB)', async () => {
+  // FIXED: 3-digit hex shorthand (#RGB) is now properly expanded to #RRGGBB.
+  test('#RGB expands to #RRGGBB', async () => {
     const buf = await renderCSS(
       `.box { color: #f60; width: 10; height: 1; }`,
       h('div', { class: 'box' }, 'X')
     )
-    // Current behavior: passed through as-is
-    expect(cellColor(buf, 0, 0)).toBe('#f60')
-    // Expected behavior once bug is fixed:
-    // expect(cellColor(buf, 0, 0)).toBe('#ff6600')
+    expect(cellColor(buf, 0, 0)).toBe('#ff6600')
   })
 
   test('#RRGGBBAA strips alpha channel → #RRGGBB', async () => {
@@ -80,12 +75,13 @@ describe('color — rgb() / rgba()', () => {
     expect(cellColor(buf, 0, 0)).toBe('#ff6600')
   })
 
-  test('rgba(255, 102, 0, 0.5) — alpha ignored, converts to hex', async () => {
+  test('rgba(255, 102, 0, 0.5) — alpha applies opacity', async () => {
     const buf = await renderCSS(
       `.box { color: rgba(255, 102, 0, 0.5); width: 10; height: 1; }`,
       h('div', { class: 'box' }, 'X')
     )
-    expect(cellColor(buf, 0, 0)).toBe('#ff6600')
+    // 255*0.5=127.5→128, 102*0.5=51, 0*0.5=0 = #803300
+    expect(cellColor(buf, 0, 0)).toBe('#803300')
   })
 })
 

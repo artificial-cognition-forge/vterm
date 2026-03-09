@@ -41,6 +41,8 @@ export function createLayoutNode(options: CreateLayoutNodeOptions): LayoutNode {
         layout: null,
         scrollX: 0,
         scrollY: 0,
+        zIndex: 0,
+        createsStackingContext: false,
     }
 }
 
@@ -74,9 +76,20 @@ export class LayoutEngine {
 
     /**
      * Build a layout tree from a Vue VNode
+     * Accepts styles as either a Map or a plain object (ParsedStyles)
      */
-    buildLayoutTree(vnode: VNode, styles: Map<string, LayoutProperties> = new Map()): LayoutNode {
-        const node = this.vnodeToLayoutNode(vnode, styles)
+    buildLayoutTree(vnode: VNode, styles?: Map<string, LayoutProperties> | Record<string, LayoutProperties>): LayoutNode {
+        // Convert plain object to Map if necessary
+        let stylesMap: Map<string, LayoutProperties>
+        if (!styles) {
+            stylesMap = new Map()
+        } else if (styles instanceof Map) {
+            stylesMap = styles
+        } else {
+            stylesMap = new Map(Object.entries(styles))
+        }
+
+        const node = this.vnodeToLayoutNode(vnode, stylesMap)
         this.linkParents(node)
         return node
     }
@@ -163,6 +176,8 @@ export class LayoutEngine {
             layout: null,
             scrollX: 0,
             scrollY: 0,
+            zIndex: 0,
+            createsStackingContext: false,
             _vnode: vnode,
         }
 
@@ -674,6 +689,10 @@ export class LayoutEngine {
             margin,
             border,
         }
+
+        // Compute z-index: 'auto' or undefined → 0, numeric value → number
+        const zIndexValue = layoutProps.zIndex
+        node.zIndex = typeof zIndexValue === 'number' ? zIndexValue : 0
 
         // Compute children layout
         if (node.children.length > 0) {

@@ -14,12 +14,13 @@ describe('foreground – rgb/rgba parsing', () => {
     expect(cellColor(buf, 0, 0)).toBe('#ff6600');
   });
 
-  test('rgba integer values (alpha ignored)', async () => {
+  test('rgba integer values (alpha applies opacity)', async () => {
     const buf = await renderCSS(
       `.box { color: rgba(255,102,0,0.5); width: 1; height: 1; }`,
       h('div', { class: 'box' }, 'X')
     );
-    expect(cellColor(buf, 0, 0)).toBe('#ff6600');
+    // 255*0.5=128→0x80, 102*0.5=51→0x33, 0*0.5=0→0x00 = #803300
+    expect(cellColor(buf, 0, 0)).toBe('#803300');
   });
 
   test('rgb percentages', async () => {

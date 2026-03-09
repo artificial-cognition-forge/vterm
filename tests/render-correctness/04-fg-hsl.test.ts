@@ -15,12 +15,14 @@ describe('foreground – hsl/hsla parsing', () => {
     expect(cellColor(buf, 0, 0)).toMatch(/^#ff6600$/i);
   });
 
-  test('hsla (alpha ignored)', async () => {
+  test('hsla (alpha applies opacity)', async () => {
     const buf = await renderCSS(
       `.box { color: hsla(24,100%,50%,0.3); width: 1; height: 1; }`,
       h('div', { class: 'box' }, 'X')
     );
-    expect(cellColor(buf, 0, 0)).toMatch(/^#ff6600$/i);
+    // hsl(24,100%,50%) = #ff6600; with alpha 0.3: 255*0.3=76.5→77, 102*0.3=30.6→31, 0*0.3=0
+    // Result: #4d1f00
+    expect(cellColor(buf, 0, 0)).toMatch(/^#4d1f00$/i);
   });
 
   test('angle units – rad', async () => {

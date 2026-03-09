@@ -130,6 +130,9 @@ export interface LayoutProperties {
     right?: number | string
     bottom?: number | string
 
+    // Stacking context
+    zIndex?: number | "auto"
+
     // Visual styles
     visualStyles?: VisualStyle
 
@@ -234,6 +237,12 @@ export interface LayoutNode {
     scrollX: number
     scrollY: number
     contentHeight?: number // Total height of scrollable content
+
+    // Stacking context
+    zIndex: number // Computed z-index (0 for auto, or numeric value)
+
+    // Stacking context information (set by buildStackingContextTree)
+    createsStackingContext: boolean // Does this node create a new stacking context?
 
     // Interactive element state (for input/textarea nodes)
     _inputValue?: string

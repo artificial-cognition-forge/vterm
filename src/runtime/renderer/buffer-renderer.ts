@@ -11,11 +11,13 @@
  */
 
 import type { LayoutNode, VisualStyle } from "../../core/layout/types"
+import { buildStackingContextTree } from "../../core/layout/stacking-context"
 import { ScreenBuffer, createStyledCell, type Cell } from "../terminal/buffer"
 import { isScrollableNode } from "../../core/layout/utils"
 import { getElement } from "../elements/registry"
 import type { InteractionManager } from "./interaction"
 import type { SelectionManager } from "./selection"
+import { RenderingPass } from "./rendering-pass"
 
 interface ClipBox {
     x: number
@@ -75,28 +77,34 @@ export class BufferRenderer {
     }
 
     /**
-     * Renders the entire layout tree to a buffer, then overlays the selection highlight.
+     * Renders the entire layout tree to a buffer using stacking contexts,
+     * then overlays the selection highlight.
+     *
+     * Uses two-pass rendering:
+     * - Pass 1: Paint all backgrounds and borders (respecting z-index stacking order)
+     * - Pass 2: Paint all text content (on top of all backgrounds)
      */
     render(root: LayoutNode, buffer: ScreenBuffer): void {
         // Clear the buffer
         buffer.clear()
 
-        // Render the tree recursively
-        this.renderNode(root, buffer, 0)
+        // Build stacking context tree from layout nodes
+        const rootContext = buildStackingContextTree(root)
+
+        // Execute two-pass rendering
+        const renderPass = new RenderingPass(buffer, this.interactionManager, this.selectionManager)
+        renderPass.executeRenderingPasses(rootContext, 0)
 
         // Overlay selection highlight on top of all rendered content
         this.selectionManager?.applyHighlight(buffer)
     }
 
     /**
-     * Renders a single node and its children
+     * Renders a single node and its children.
+     * Renders children sorted by z-index (back-to-front) to ensure higher z-index
+     * elements completely obscure lower ones.
      */
-    private renderNode(
-        node: LayoutNode,
-        buffer: ScreenBuffer,
-        parentScrollY: number = 0,
-        clipBox?: ClipBox
-    ): void {
+    private renderNode(node: LayoutNode, buffer: ScreenBuffer, parentScrollY: number = 0, clipBox?: ClipBox): void {
         if (!node.layout) return
 
         // Skip invisible nodes and display:none nodes
@@ -108,17 +116,14 @@ export class BufferRenderer {
         // Get the effective style for this node (base style + interactive state)
         const effectiveStyle = this.getEffectiveStyle(node)
 
-        // Render based on node type — pass parentScrollY (the offset applied to THIS node)
+        // Render based on node type
         if (node.type === "text") {
             this.renderText(node, buffer, effectiveStyle, parentScrollY, clipBox)
         } else {
             this.renderBox(node, buffer, effectiveStyle, parentScrollY, clipBox)
         }
 
-        // All container nodes establish a clip box that constrains their children.
-        // This ensures children cannot render outside the parent's bounds.
-        // IMPORTANT: clip box must be in SCREEN coordinates (layout.y - parentScrollY),
-        // not layout coordinates, because children are drawn at scroll-adjusted positions.
+        // All container nodes establish a clip box that constrains their children
         const childClipBox: ClipBox | undefined = node.layout && node.type !== 'text'
             ? (() => {
                 const own: ClipBox = { x: node.layout.x, y: node.layout.y - parentScrollY, width: node.layout.width, height: node.layout.height }
@@ -135,8 +140,11 @@ export class BufferRenderer {
         const skipChildren = node.type !== 'text' && !!getElement(node.type)?.skipChildren
 
         if (!skipChildren) {
+            // Sort children by z-index for proper layering (back-to-front)
+            const sortedChildren = [...node.children].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+
             // Render children with accumulated scroll offset and clip box
-            for (const child of node.children) {
+            for (const child of sortedChildren) {
                 this.renderNode(child, buffer, effectiveScrollY, childClipBox)
             }
 
@@ -146,6 +154,7 @@ export class BufferRenderer {
             }
         }
     }
+
 
     /**
      * Renders a scrollbar overlay on the rightmost column of a scrollable node.
