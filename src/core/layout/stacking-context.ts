@@ -80,11 +80,14 @@ export function detectStackingContext(node: LayoutNode): boolean {
   if (node.parent === null) return true
 
   // Positioned element with explicit z-index (not 'auto')
-  if (
-    node.layoutProps.position &&
-    typeof node.layoutProps.zIndex === "number"
-  ) {
-    return true
+  // Check layoutProps.zIndex (parsed CSS value, may be a number or 'auto')
+  // OR check node.zIndex !== 0 with position set (node.zIndex is computed after layout)
+  if (node.layoutProps.position) {
+    // If position is set, check if z-index was explicit (not auto/undefined)
+    // layoutProps.zIndex is the original CSS value
+    if (typeof node.layoutProps.zIndex === "number") {
+      return true
+    }
   }
 
   // Element with opacity < 1 (creates stacking context)

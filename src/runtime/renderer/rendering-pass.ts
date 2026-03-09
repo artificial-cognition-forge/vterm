@@ -277,11 +277,20 @@ export class RenderingPass {
 
     const adjustedY = node.layout.y - parentScrollY
 
-    const own: ClipBox = {
+    let own: ClipBox = {
       x: node.layout.x,
       y: adjustedY,
       width: node.layout.width,
       height: node.layout.height,
+    }
+
+    // For scrollable containers with overflow, reserve 1 column for the scrollbar
+    if (isScrollableNode(node) && node.contentHeight !== undefined) {
+      const viewportHeight = node.layout.height
+      if (node.contentHeight > viewportHeight) {
+        // Content overflows - reduce width by 1 to reserve space for scrollbar
+        own = { ...own, width: Math.max(0, own.width - 1) }
+      }
     }
 
     if (!clipBox) return own
