@@ -149,7 +149,8 @@ export class BufferRenderer {
             }
 
             // Overlay scrollbar on top of children (rightmost column of the viewport)
-            if (isScrollableNode(node) && node.layout) {
+            // Textarea always gets a scrollbar if content overflows
+            if ((isScrollableNode(node) || node.type === 'textarea') && node.layout) {
                 this.renderScrollbar(node, buffer, parentScrollY)
             }
         }
@@ -163,10 +164,30 @@ export class BufferRenderer {
     private renderScrollbar(node: LayoutNode, buffer: ScreenBuffer, parentScrollY: number): void {
         const layout = node.layout!
         const contentHeight = node.contentHeight ?? 0
-        const viewportHeight = layout.height
+
+        // Calculate actual viewport height (content area minus borders and padding)
+        const border = layout.border.width
+        const padding = layout.padding
+        const viewportHeight = layout.height - 2 * border - padding.top - padding.bottom
+
+        // Store debug info on node for testing
+        ;(node as any).__scrollbar_debug = {
+            contentHeight, viewportHeight, border, padding,
+            shouldRender: contentHeight > viewportHeight,
+            layout_x: layout.x,
+            layout_y: layout.y,
+            layout_width: layout.width,
+            layout_height: layout.height,
+            scrollbar_x: layout.x + layout.width - 1,
+            scrollbar_y: layout.y + border,
+            scrollbar_height: viewportHeight,
+            parentScrollY
+        }
+
         if (contentHeight <= viewportHeight) return
 
-        const adjustedY = layout.y - parentScrollY
+        // Scrollbar is positioned at the right edge of the content area (inside border)
+        const adjustedY = layout.y + border + padding.top - parentScrollY
         const x = layout.x + layout.width - 1
 
         const thumbSize = Math.max(1, Math.floor((viewportHeight / contentHeight) * viewportHeight))

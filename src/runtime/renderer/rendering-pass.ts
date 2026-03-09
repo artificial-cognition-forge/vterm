@@ -220,8 +220,8 @@ export class RenderingPass {
         this.renderNode(child, parentContext, effectiveScrollY, childClipBox)
       }
 
-      // Render scrollbar on top of children (background pass only)
-      if (!this.isTextPass && isScrollableNode(node) && node.layout) {
+      // Render scrollbar on top of children (text pass, after content is rendered)
+      if (this.isTextPass && (isScrollableNode(node) || node.type === 'textarea') && node.layout) {
         this.renderScrollbar(node, parentScrollY)
       }
     }
@@ -593,12 +593,14 @@ export class RenderingPass {
   private renderScrollbar(node: LayoutNode, parentScrollY: number): void {
     const layout = node.layout!
     const contentHeight = node.contentHeight ?? 0
-    const viewportHeight = layout.height
+    const border = layout.border.width
+    const padding = layout.padding
+    const viewportHeight = layout.height - 2 * border - padding.top - padding.bottom
 
     if (contentHeight <= viewportHeight) return
 
-    const adjustedY = layout.y - parentScrollY
-    const x = layout.x + layout.width - 1
+    const adjustedY = layout.y - parentScrollY + border
+    const x = layout.x + layout.width - 1 - border
 
     const thumbSize = Math.max(1, Math.floor((viewportHeight / contentHeight) * viewportHeight))
     const scrollRange = contentHeight - viewportHeight

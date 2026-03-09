@@ -291,12 +291,17 @@ export class InteractionManager {
 
         // Scroll the node
         const scrollAmount = 3 // Scroll 3 lines per wheel tick
+        const layout = scrollableNode.layout!
+        const border = layout.border.width
+        const padding = layout.padding
+        const viewportHeight = layout.height - 2 * border - padding.top - padding.bottom
+
         if (event.type === "wheelup") {
             scrollableNode.scrollY = Math.max(0, scrollableNode.scrollY - scrollAmount)
         } else if (event.type === "wheeldown") {
             const maxScroll = Math.max(
                 0,
-                (scrollableNode.contentHeight || 0) - scrollableNode.layout.height
+                (scrollableNode.contentHeight || 0) - viewportHeight
             )
             scrollableNode.scrollY = Math.min(maxScroll, scrollableNode.scrollY + scrollAmount)
         }
@@ -309,7 +314,7 @@ export class InteractionManager {
      * Find the nearest scrollable ancestor node (or the node itself)
      */
     private findScrollableNode(node: LayoutNode): LayoutNode | null {
-        if (isScrollableNode(node)) return node
+        if (isScrollableNode(node) || node.type === 'textarea') return node
         if (node.parent) return this.findScrollableNode(node.parent)
         return null
     }

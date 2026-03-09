@@ -73,6 +73,11 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
             const buffer = driver.getBuffer()
             selectionManager.copyToClipboard(buffer)
         }
+
+        // Trigger re-render for wheel scroll and selection changes
+        if (mouseEvent.type === 'wheelup' || mouseEvent.type === 'wheeldown' || selectionManager.hasSelection()) {
+            scheduleRender()
+        }
     })
 
     // Route keypresses to focused interactive elements via the element behavior registry.

@@ -4,6 +4,8 @@
         <button @click="nav">Search</button>
     </div>
 
+    {{ vtermNavInput }}
+
     <div class="spacer"></div>
 
     <div class="vterm-debugger">
@@ -13,6 +15,15 @@
         </div>
     </div>
 </template>
+
+<script setup lang="ts">
+const router = useRouter()
+const vtermNavInput = ref("hey")
+
+function nav() {
+    router.navigate(vtermNavInput.value)
+}
+</script>
 
 <style scoped>
 .vterm-nav {
