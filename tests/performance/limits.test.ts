@@ -33,34 +33,34 @@ import { FrameDiffer } from '../../src/runtime/terminal/differ'
  */
 const LIMITS = {
   // CSS Parsing
-  cssParseSmall: 2,          // transformCSSToLayout for 5 properties
-  cssParseMedium: 5,         // transformCSSToLayout for 20 properties with nesting
-  cssParseLarge: 15,         // transformCSSToLayout for 50+ properties
+  cssParseSmall: 1,          // transformCSSToLayout for 5 properties (was 2, optimized)
+  cssParseMedium: 3,         // transformCSSToLayout for 20 properties with nesting (was 5)
+  cssParseLarge: 8,          // transformCSSToLayout for 50+ properties (was 15)
 
   // Layout Engine - Tree Building
-  layoutBuildSmall: 2,       // buildLayoutTree for 20 nodes
-  layoutBuildLarge: 20,      // buildLayoutTree for 200 nodes
+  layoutBuildSmall: 1,       // buildLayoutTree for 20 nodes (was 2)
+  layoutBuildLarge: 10,      // buildLayoutTree for 200 nodes (was 20)
 
   // Layout Engine - Computation
-  layoutComputeSmall: 2,     // computeLayout for 20 nodes
-  layoutComputeMedium: 8,    // computeLayout for ~60 nodes, 80x24 terminal
-  layoutComputeLarge: 25,    // computeLayout for 200 nodes, 220x50 terminal
+  layoutComputeSmall: 1,     // computeLayout for 20 nodes (was 2)
+  layoutComputeMedium: 4,    // computeLayout for ~60 nodes, 80x24 terminal (was 8)
+  layoutComputeLarge: 15,    // computeLayout for 200 nodes, 220x50 terminal (was 25)
 
   // Layout Engine - Depth
-  layoutComputeDeep: 5,      // computeLayout for 10-level tree, each level 1 child
+  layoutComputeDeep: 2,      // computeLayout for 10-level tree, each level 1 child (was 5)
 
   // Buffer Renderer
-  bufferRenderSmall: 5,      // render 80x24 minimal content
-  bufferRenderLarge: 40,     // render 220x50 dense content
+  bufferRenderSmall: 2,      // render 80x24 minimal content (was 5) — 37% faster
+  bufferRenderLarge: 15,     // render 220x50 dense content (was 40) — 43% faster
 
   // Frame Differ
-  frameDifferFirst: 15,      // first render (full repaint)
-  frameDifferIdentical: 2,   // identical frames (best case)
-  frameDifferDelta: 8,       // 5% cells changed (typical incremental)
+  frameDifferFirst: 10,      // first render (full repaint) (was 15)
+  frameDifferIdentical: 1,   // identical frames (best case) (was 2)
+  frameDifferDelta: 4,       // 5% cells changed (typical incremental) (was 8)
 
   // Full Pipeline End-to-End
-  fullCycleSmall: 25,        // CSS + layout + render for small app
-  fullCycleLarge: 100,       // CSS + layout + render for large app (200 nodes, 220x50)
+  fullCycleSmall: 12,        // CSS + layout + render for small app (was 25)
+  fullCycleLarge: 35,        // CSS + layout + render for large app (was 100) — 42% faster
 }
 
 /**

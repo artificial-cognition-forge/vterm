@@ -143,21 +143,23 @@ export class RenderingPass {
       // - For other layers: use contextScrollY (includes context's scrollY)
       const layerParentScrollY = layer.zIndex === -Infinity ? parentScrollY : contextScrollY
 
+      // Pre-compute clip boxes once for this layer (optimization: avoid O(N*D) ancestor walks)
+      const nodeCount = layer.nodes.length
+      const clipBoxes: Array<ClipBox | undefined> = new Array(nodeCount)
+      for (let i = 0; i < nodeCount; i++) {
+        clipBoxes[i] = this.computeClipBoxFromAncestors(layer.nodes[i]!, contextClipBox)
+      }
+
       // First pass for this z-index: render backgrounds and borders
       this.isTextPass = false
-      for (const node of layer.nodes) {
-        // When rendering nodes from layers, compute the appropriate clipBox
-        // based on this node's parents' viewports
-        const nodeClipBox = this.computeClipBoxFromAncestors(node, contextClipBox)
-        this.renderNode(node, context, layerParentScrollY, nodeClipBox)
+      for (let i = 0; i < nodeCount; i++) {
+        this.renderNode(layer.nodes[i]!, context, layerParentScrollY, clipBoxes[i])
       }
 
       // Second pass for this z-index: render text content
       this.isTextPass = true
-      for (const node of layer.nodes) {
-        // When rendering nodes from layers, compute the appropriate clipBox
-        const nodeClipBox = this.computeClipBoxFromAncestors(node, contextClipBox)
-        this.renderNode(node, context, layerParentScrollY, nodeClipBox)
+      for (let i = 0; i < nodeCount; i++) {
+        this.renderNode(layer.nodes[i]!, context, layerParentScrollY, clipBoxes[i])
       }
 
       // Render nested stacking contexts that are at this z-index level

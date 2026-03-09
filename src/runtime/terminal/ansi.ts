@@ -3,6 +3,12 @@
  */
 
 /**
+ * Cache for hex color conversions (memoization)
+ * Maps hex string → RGB tuple or null (for invalid hex)
+ */
+const hexToRgbCache = new Map<string, [number, number, number] | null>()
+
+/**
  * ANSI color codes
  */
 const COLORS: Record<string, number> = {
@@ -28,13 +34,19 @@ const COLORS: Record<string, number> = {
 }
 
 /**
- * Converts hex color to RGB
+ * Converts hex color to RGB (with memoization)
  */
 function hexToRgb(hex: string): [number, number, number] | null {
+    const cached = hexToRgbCache.get(hex)
+    if (cached !== undefined) return cached
+
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-    return result
+    const rgb: [number, number, number] | null = result
         ? [parseInt(result[1]!, 16), parseInt(result[2]!, 16), parseInt(result[3]!, 16)]
         : null
+
+    hexToRgbCache.set(hex, rgb)
+    return rgb
 }
 
 /**

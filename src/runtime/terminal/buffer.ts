@@ -92,12 +92,21 @@ export class ScreenBuffer {
   }
 
   /**
-   * Clears the entire buffer
+   * Clears the entire buffer (in-place mutation for performance)
    */
   clear(): void {
     for (let y = 0; y < this.height; y++) {
+      const row = this.cells[y]!
       for (let x = 0; x < this.width; x++) {
-        this.cells[y][x] = createCell()
+        const cell = row[x]!
+        cell.char = ' '
+        cell.color = null
+        cell.background = null
+        cell.bold = false
+        cell.underline = false
+        cell.italic = false
+        cell.inverse = false
+        cell.dim = false
       }
     }
   }
@@ -143,7 +152,7 @@ export class ScreenBuffer {
   }
 
   /**
-   * Fills a rectangular region with a character
+   * Fills a rectangular region with a character (in-place mutation for performance)
    */
   fill(
     x: number,
@@ -157,11 +166,22 @@ export class ScreenBuffer {
     const startX = Math.max(x, 0)
     const startY = Math.max(y, 0)
 
+    // Destructure once to reduce property lookups
+    const { char, color, background, bold, underline, italic, inverse, dim } = cell
+
     for (let row = startY; row < endY; row++) {
       const rowCells = this.cells[row]
       if (!rowCells) continue
       for (let col = startX; col < endX; col++) {
-        rowCells[col] = { ...cell }
+        const c = rowCells[col]!
+        c.char = char
+        c.color = color
+        c.background = background
+        c.bold = bold
+        c.underline = underline
+        c.italic = italic
+        c.inverse = inverse
+        c.dim = dim
       }
     }
   }
