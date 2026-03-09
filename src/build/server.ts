@@ -18,6 +18,7 @@ export async function startDevServer(config: VTermConfig): Promise<void> {
     store: storeOptions,
     highlight,
     selection,
+    ui,
   } = config
 
   // Entry path is already resolved by loadConfig
@@ -53,6 +54,7 @@ export async function startDevServer(config: VTermConfig): Promise<void> {
         store: storeOptions,
         highlight,
         selection,
+        ui,
       })
     } catch (error) {
       console.error("Failed to create app:", error)

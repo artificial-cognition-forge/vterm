@@ -1,8 +1,0 @@
-{
-  "name": "textarea-scroll-debug",
-  "version": "0.0.1",
-  "private": true,
-  "scripts": {
-    "dev": "vterm dev"
-  }
-}

@@ -1,9 +1,0 @@
-{
-  "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@arcforge/vterm": ["../../src/index.ts"]
-    }
-  }
-}

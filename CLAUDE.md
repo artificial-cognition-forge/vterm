@@ -192,6 +192,19 @@ export default defineVtermConfig({
   store: {
     dataDir: './data',             // Override store data directory
   },
+  highlight: {
+    theme: 'dark-plus',            // Syntax highlighting theme (default: 'dark-plus')
+  },
+  ui: {
+    scrollbar: {
+      thumb: '█',                  // Scrollbar thumb character (default: '█')
+      track: '│',                  // Scrollbar track character (default: '│')
+    },
+    cursor: {
+      shape: 'block',              // Cursor shape: 'block', 'line', 'underline' (default: 'block')
+      blink: true,                 // Whether cursor blinks (default: true)
+    },
+  },
 })
 ```
 

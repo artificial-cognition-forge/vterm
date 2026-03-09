@@ -30,7 +30,7 @@ import type { LayoutNode } from "./layout/types"
  * Create a terminal app using custom terminal rendering
  */
 export async function vterm(options: VTermOptions): Promise<VTermApp> {
-    const { entry, layout, onMounted, quitKeys = ['C-c'], highlight, selection } = options
+    const { entry, layout, onMounted, quitKeys = ['C-c'], highlight, selection, ui } = options
 
     // Configure syntax highlighter before any components load
     if (highlight) configureHighlighter(highlight)
@@ -97,7 +97,7 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     })
 
     // Initialize buffer renderer
-    const bufferRenderer = new BufferRenderer(interactionManager, selectionManager)
+    const bufferRenderer = new BufferRenderer(interactionManager, selectionManager, ui)
 
     // Setup render scheduling — always immediate via microtask queue
     let renderScheduled = false

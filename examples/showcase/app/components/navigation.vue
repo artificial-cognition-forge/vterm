@@ -4,6 +4,7 @@
         <a href="/" class="link">home</a>
         <a href="/layout" class="link">layout</a>
         <a href="/colors" class="link">colors</a>
+        <a href="/markdown" class="link">markdown</a>
         <a href="/reactive" class="link">reactive</a>
     </nav>
 </template>

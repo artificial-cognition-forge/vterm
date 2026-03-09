@@ -3,5 +3,8 @@ export default defineVtermConfig({
   quitKeys: ['C-c'],
   npm: {
     access: "public",
+  },
+  highlight: {
+    theme: "dark-plus"
   }
 })

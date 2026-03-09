@@ -1,11 +1,10 @@
+<script setup lang="ts">
+import Navigation from '../components/navigation.vue';
+
+</script>
+
 <template>
-  <nav class="nav">
-    <p class="brand">vterm</p>
-    <a href="/" class="link">home</a>
-    <a href="/layout" class="link">layout</a>
-    <a href="/colors" class="link">colors</a>
-    <a href="/reactive" class="link">reactive</a>
-  </nav>
+  <Navigation />
 
   <div class="page">
     <h1>VTerm Showcase</h1>
@@ -42,12 +41,28 @@
         <p>File-based routing with pages/</p>
       </div>
     </div>
+
+    <div class="markdown">
+    </div>
+
+    <div class="section">
+      <div>Highlighting</div>
+
+      <div>
+        <div>```typescript</div>
+        <code lang="ts">console.log("hello")</code>
+        <div>```</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .page {
-  margin-top: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 1;
+  margin-top: 1;
   height: 100%;
   overflow-y: scroll;
 }
@@ -60,9 +75,6 @@ h2 {
   color: white;
 }
 
-.section {
-  margin-top: 1;
-}
 
 .item {
   display: flex;

@@ -16,10 +16,40 @@ export interface SelectionConfig {
  * Syntax highlighting configuration (powered by Shiki)
  */
 export interface HighlightConfig {
-    /** Shiki theme to use for syntax highlighting (default: 'github-dark') */
+    /** Shiki theme to use for syntax highlighting (default: 'dark-plus') */
     theme?: BundledTheme
     /** Additional languages to preload beyond the built-in common set */
     langs?: BundledLanguage[]
+}
+
+/**
+ * Scrollbar appearance configuration
+ */
+export interface ScrollbarConfig {
+    /** Character to use for scrollbar thumb (default: '█') */
+    thumb?: string
+    /** Character to use for scrollbar track (default: '│') */
+    track?: string
+}
+
+/**
+ * Cursor appearance configuration
+ */
+export interface CursorConfig {
+    /** Cursor shape: 'block', 'line', or 'underline' (default: 'block') */
+    shape?: 'block' | 'line' | 'underline'
+    /** Whether cursor should blink (default: true) */
+    blink?: boolean
+}
+
+/**
+ * UI customization options (non-CSS features)
+ */
+export interface UIConfig {
+    /** Scrollbar appearance (characters, colors) */
+    scrollbar?: ScrollbarConfig
+    /** Cursor appearance (shape, blinking) */
+    cursor?: CursorConfig
 }
 
 /**
@@ -71,6 +101,9 @@ export interface VTermConfig {
     /** Text selection highlight style */
     selection?: SelectionConfig
 
+    /** UI customization (scrollbar, cursor, etc.) */
+    ui?: UIConfig
+
     /** npm deployment configuration */
     npm?: {
         /** npm package name (defaults to package.json name) */
@@ -91,6 +124,23 @@ export function defineVtermConfig(config: Partial<VTermConfig> = {}): VTermConfi
         ...config,
         screen: { title: 'VTerm', ...config.screen },
         quitKeys: config.quitKeys ?? ['C-c'],
+        highlight: {
+            theme: 'dark-plus',
+            ...config.highlight,
+        },
+        ui: {
+            scrollbar: {
+                thumb: '█',
+                track: '│',
+                ...config.ui?.scrollbar,
+            },
+            cursor: {
+                shape: 'block',
+                blink: true,
+                ...config.ui?.cursor,
+            },
+            ...config.ui,
+        },
     }
 }
 
@@ -129,6 +179,9 @@ export interface VTermOptions {
 
     /** Text selection highlight style */
     selection?: SelectionConfig
+
+    /** UI customization (scrollbar, cursor, etc.) */
+    ui?: UIConfig
 }
 
 /**

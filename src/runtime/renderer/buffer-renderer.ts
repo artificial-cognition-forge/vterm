@@ -18,6 +18,7 @@ import { getElement } from "../elements/registry"
 import type { InteractionManager } from "./interaction"
 import type { SelectionManager } from "./selection"
 import { RenderingPass } from "./rendering-pass"
+import type { UIConfig } from "../../types/types"
 
 interface ClipBox {
     x: number
@@ -70,10 +71,12 @@ const BOX_CHARS = {
 export class BufferRenderer {
     private interactionManager?: InteractionManager
     private selectionManager?: SelectionManager
+    private uiConfig: UIConfig
 
-    constructor(interactionManager?: InteractionManager, selectionManager?: SelectionManager) {
+    constructor(interactionManager?: InteractionManager, selectionManager?: SelectionManager, uiConfig?: UIConfig) {
         this.interactionManager = interactionManager
         this.selectionManager = selectionManager
+        this.uiConfig = uiConfig ?? { scrollbar: { thumb: '█', track: '│' }, cursor: { shape: 'block', blink: true } }
     }
 
     /**
@@ -198,11 +201,15 @@ export class BufferRenderer {
         const trackStyle = { color: 'grey' as string, background: null, bold: false, underline: false, italic: false, inverse: false, dim: false }
         const thumbStyle = { color: 'white' as string, background: null, bold: false, underline: false, italic: false, inverse: false, dim: false }
 
+        const scrollbarConfig = this.uiConfig.scrollbar ?? {}
+        const thumbChar = scrollbarConfig.thumb ?? '█'
+        const trackChar = scrollbarConfig.track ?? '│'
+
         for (let i = 0; i < viewportHeight; i++) {
             const y = adjustedY + i
             if (y < 0 || y >= buffer.height) continue
             const isThumb = i >= thumbPos && i < thumbPos + thumbSize
-            buffer.write(x, y, isThumb ? '█' : '│', isThumb ? thumbStyle : trackStyle)
+            buffer.write(x, y, isThumb ? thumbChar : trackChar, isThumb ? thumbStyle : trackStyle)
         }
     }
 
