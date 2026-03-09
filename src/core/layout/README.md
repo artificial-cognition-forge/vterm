@@ -35,7 +35,7 @@ Vue VNode → Layout Engine → Layout Tree → Platform Renderer (Blessed/etc.)
 ### Creating a Layout Engine
 
 ```typescript
-import { createLayoutEngine } from '@arclabs/vterm/core/layout'
+import { createLayoutEngine } from '@arcforge/vterm/core/layout'
 
 const engine = createLayoutEngine(800, 600) // containerWidth, containerHeight
 ```

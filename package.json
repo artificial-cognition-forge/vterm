@@ -1,6 +1,6 @@
 {
     "name": "@arcforge/vterm",
-    "version": "0.7.0",
+    "version": "0.7.1",
     "description": "Build blazingly fast terminal apps with Vue components and CSS",
     "type": "module",
     "main": "./src/index.ts",
