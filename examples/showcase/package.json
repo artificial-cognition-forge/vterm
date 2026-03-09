@@ -7,7 +7,7 @@
     "prepare": "vterm prepare"
   },
   "devDependencies": {
-    "@arclabs/vterm": "latest",
+    "@arcforge/vterm": "latest",
     "@types/bun": "latest",
     "typescript": "^5"
   }

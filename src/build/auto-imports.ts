@@ -21,7 +21,7 @@ export async function initAutoImports(cwd: string = process.cwd()) {
     presets: [
       // Auto-import all vterm APIs
       {
-        from: '@arclabs/vterm',
+        from: '@arcforge/vterm',
         imports: [
           // Vue reactivity
           'ref',
@@ -135,6 +135,7 @@ export function generateTsConfig(): string {
     },
     "include": [
       "./auto-imports.d.ts",
+      "../vterm.config.ts",
       "../app/**/*.ts",
       "../app/**/*.vue"
     ]
@@ -154,8 +155,8 @@ export async function getRuntimeComposables(): Promise<Record<string, any>> {
   const composables: Record<string, any> = {}
 
   for (const imp of imports) {
-    // Only include imports from local files (not from @arclabs/vterm)
-    if (imp.from && !imp.from.startsWith('@arclabs/vterm') && !imp.from.startsWith('vue')) {
+    // Only include imports from local files (not from @arcforge/vterm)
+    if (imp.from && !imp.from.startsWith('@arcforge/vterm') && !imp.from.startsWith('vue')) {
       try {
         const module = await import(imp.from)
         composables[imp.as || imp.name] = module[imp.name]

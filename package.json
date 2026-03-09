@@ -37,6 +37,7 @@
     },
     "dependencies": {
         "@vue/compiler-sfc": "^3.5.26",
+        "glob": "^13.0.6",
         "postcss": "^8.5.6",
         "postcss-nested": "^7.0.2",
         "shiki": "^1.0.0",

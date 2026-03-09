@@ -37,8 +37,7 @@ if (values.help || !command) {
 // Handle commands
 switch (command) {
     case "init": {
-        const targetDir = positionals[1] || "."
-        await init(targetDir)
+        await init(positionals[1])
         break
     }
 

@@ -1,61 +1,41 @@
-import { resolve, join } from "path"
-import { existsSync, readdirSync, mkdir } from "fs"
+import { join } from "path"
+import { mkdir } from "fs"
 
 /**
- * Initialize a new vterm project
+ * Scaffold a new vterm project at the given (pre-validated) directory path.
  */
-export async function initProject(targetDir: string = "."): Promise<void> {
-    const cwd = process.cwd()
-    const projectDir = targetDir === "." ? cwd : resolve(cwd, targetDir)
+export async function initProject(projectDir: string, projectName: string): Promise<void> {
+    console.log(`\nCreating vterm project: ${projectName}\n`)
 
-    console.log(`Initializing vterm project in ${projectDir}...`)
+    await ensureDirectory(projectDir)
+    await ensureDirectory(join(projectDir, "app"))
 
-    // Check if directory exists and has files
-    if (targetDir !== "." && existsSync(projectDir)) {
-        const files = await getDirectoryFiles(projectDir)
-        if (files.length > 0) {
-            console.error(`Error: Directory "${targetDir}" already exists and is not empty`)
-            process.exit(1)
-        }
-    }
-
-    // Create project directory if needed
-    if (targetDir !== ".") {
-        await ensureDirectory(projectDir)
-    }
-
-    // Create app directory
-    const appDir = join(projectDir, "app")
-    await ensureDirectory(appDir)
-
-    // Write files
-    await writePackageJson(projectDir)
+    await writePackageJson(projectDir, projectName)
     await writeTsConfig(projectDir)
-    await writeVTermConfig(projectDir)
-    await writeIndexVue(appDir)
+    await writeVTermConfig(projectDir, projectName)
+    await writeIndexVue(join(projectDir, "app"))
 
-    console.log("✓ Project initialized successfully!")
-    console.log()
+    console.log(`\n✓ Created ${projectName}\n`)
     console.log("Next steps:")
-    console.log(`  cd ${targetDir === "." ? "." : targetDir}`)
+    console.log(`  cd ${projectName}`)
     console.log("  bun install")
     console.log("  vterm dev")
+    console.log()
 }
 
 async function ensureDirectory(path: string): Promise<void> {
-    await new Promise<void>((resolvePromise, reject) => {
+    await new Promise<void>((resolve, reject) => {
         mkdir(path, { recursive: true }, err => {
             if (err) reject(err)
-            else resolvePromise()
+            else resolve()
         })
     })
 }
 
-async function writePackageJson(projectDir: string): Promise<void> {
-    const packageName = projectDir.split("/").pop() || "my-vterm-app"
+async function writePackageJson(projectDir: string, projectName: string): Promise<void> {
     const content = JSON.stringify(
         {
-            name: packageName,
+            name: projectName,
             version: "0.0.1",
             type: "module",
             scripts: {
@@ -63,7 +43,7 @@ async function writePackageJson(projectDir: string): Promise<void> {
                 prepare: "vterm prepare",
             },
             devDependencies: {
-                "@arclabs/vterm": "latest",
+                "@arcforge/vterm": "latest",
                 "@types/bun": "latest",
                 typescript: "^5",
             },
@@ -71,9 +51,7 @@ async function writePackageJson(projectDir: string): Promise<void> {
         null,
         2
     )
-    const path = join(projectDir, "package.json")
-    await Bun.write(path, content)
-    console.log(`  Created ${path}`)
+    await write(join(projectDir, "package.json"), content)
 }
 
 async function writeTsConfig(projectDir: string): Promise<void> {
@@ -90,71 +68,48 @@ async function writeTsConfig(projectDir: string): Promise<void> {
         null,
         2
     )
-    const path = join(projectDir, "tsconfig.json")
-    await Bun.write(path, content)
-    console.log(`  Created ${path}`)
+    await write(join(projectDir, "tsconfig.json"), content)
 }
 
-async function writeVTermConfig(projectDir: string): Promise<void> {
-    const packageName = projectDir.split("/").pop() || "My VTerm App"
-    const content = `import type { VTermConfig } from '@arclabs/vterm'
+async function writeVTermConfig(projectDir: string, projectName: string): Promise<void> {
+    const title = projectName
+        .split(/[-_]/)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ")
 
-export default {
-  entry: './app/index.vue',
-  screen: { title: '${packageName}' },
-  renderInterval: 100,
-  quitKeys: ['escape', 'q', 'C-c'],
-} satisfies VTermConfig
+    const content = `export default defineVtermConfig({
+  screen: { title: '${title}' },
+  quitKeys: ['C-c'],
+})
 `
-    const path = join(projectDir, "vterm.config.ts")
-    await Bun.write(path, content)
-    console.log(`  Created ${path}`)
+    await write(join(projectDir, "vterm.config.ts"), content)
 }
 
 async function writeIndexVue(appDir: string): Promise<void> {
     const content = `<template>
   <div class="container">
-    <text class="title" content="Welcome to VTerm" />
-    <text class="docs" :top="2" content="https://vterm.dev/docs" />
-    <button :top="4" @press="increment">
-      Count: {{ count }}
-    </button>
+    <div class="text">Hello World!</div>
   </div>
 </template>
-
-<script setup lang="ts">
-const count = ref(0)
-const increment = () => count.value++
-</script>
 
 <style scoped>
 .container {
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
   width: 100%;
   height: 100%;
 }
 
-.title {
+text {
   color: white;
-}
-
-.docs {
-  color: dimgray;
 }
 </style>
 `
-    const path = join(appDir, "index.vue")
-    await Bun.write(path, content)
-    console.log(`  Created ${path}`)
+    await write(join(appDir, "index.vue"), content)
 }
 
-function getDirectoryFiles(dir: string): string[] {
-    try {
-        return readdirSync(dir)
-    } catch {
-        return []
-    }
+async function write(path: string, content: string): Promise<void> {
+    await Bun.write(path, content)
+    console.log(`  created  ${path}`)
 }
