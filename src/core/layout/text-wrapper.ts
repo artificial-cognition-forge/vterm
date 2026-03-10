@@ -5,6 +5,23 @@
  * Supports: normal, nowrap, pre, pre-wrap, pre-line
  */
 
+// Frame-scoped cache for text wrapping results (OPT-13)
+let wrapCache: Map<string, string[]> | null = null
+
+/**
+ * Clear the text wrapping cache (should be called at the start of each layout pass)
+ */
+export function clearWrapCache(): void {
+  wrapCache = null
+}
+
+/**
+ * Enable text wrapping cache (should be called at the start of each layout pass)
+ */
+export function enableWrapCache(): void {
+  wrapCache = new Map()
+}
+
 /**
  * Wraps text according to CSS white-space rules
  *
@@ -14,24 +31,45 @@
  * @returns Array of lines, each within the specified width
  */
 export function wrapText(text: string, width: number, whiteSpace: string = 'normal'): string[] {
+  // Check cache first (OPT-13)
+  if (wrapCache) {
+    const cacheKey = `${text}:${width}:${whiteSpace}`
+    const cached = wrapCache.get(cacheKey)
+    if (cached) return cached
+  }
+
   if (width <= 0) {
     // Invalid width: process normally but don't wrap
     return wrapText(text, 1000, whiteSpace)
   }
 
+  let result: string[]
   switch (whiteSpace) {
     case 'nowrap':
-      return handleNowrap(text)
+      result = handleNowrap(text)
+      break
     case 'pre':
-      return handlePre(text, width)
+      result = handlePre(text, width)
+      break
     case 'pre-wrap':
-      return handlePreWrap(text, width)
+      result = handlePreWrap(text, width)
+      break
     case 'pre-line':
-      return handlePreLine(text, width)
+      result = handlePreLine(text, width)
+      break
     case 'normal':
     default:
-      return handleNormal(text, width)
+      result = handleNormal(text, width)
+      break
   }
+
+  // Store in cache (OPT-13)
+  if (wrapCache) {
+    const cacheKey = `${text}:${width}:${whiteSpace}`
+    wrapCache.set(cacheKey, result)
+  }
+
+  return result
 }
 
 /**

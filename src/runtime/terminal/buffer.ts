@@ -70,11 +70,13 @@ export class ScreenBuffer {
   private cells: Cell[][]
   public width: number
   public height: number
+  private dirtyRows: Uint8Array  // Track which rows have been modified
 
   constructor(width: number, height: number) {
     this.width = width
     this.height = height
     this.cells = this.createEmptyBuffer(width, height)
+    this.dirtyRows = new Uint8Array(height)
   }
 
   /**
@@ -108,7 +110,31 @@ export class ScreenBuffer {
         cell.inverse = false
         cell.dim = false
       }
+      this.dirtyRows[y] = 1
     }
+  }
+
+  /**
+   * Marks a row as dirty (modified)
+   */
+  markRowDirty(y: number): void {
+    if (y >= 0 && y < this.height) {
+      this.dirtyRows[y] = 1
+    }
+  }
+
+  /**
+   * Checks if a row is dirty
+   */
+  isRowDirty(y: number): boolean {
+    return y >= 0 && y < this.height && this.dirtyRows[y] === 1
+  }
+
+  /**
+   * Resets all dirty flags
+   */
+  resetDirtyFlags(): void {
+    this.dirtyRows.fill(0)
   }
 
   /**
@@ -125,7 +151,7 @@ export class ScreenBuffer {
   }
 
   /**
-   * Writes text at position with optional style
+   * Writes text at position with optional style (in-place mutation for performance)
    */
   write(
     x: number,
@@ -140,13 +166,22 @@ export class ScreenBuffer {
     const row = this.cells[y]
     if (!row) return
 
+    this.markRowDirty(y)
+
     for (let i = 0; i < text.length; i++) {
       const charX = x + i
       if (charX >= 0 && charX < this.width) {
-        // Preserve existing background when the style specifies none.
-        // Text nodes should not clobber a parent's background color.
-        const effectiveBg = style.background ?? row[charX]?.background ?? null
-        row[charX] = createStyledCell(text[i]!, { ...style, background: effectiveBg })
+        // Mutate existing cell in-place instead of allocating new
+        const cell = row[charX]!
+        const effectiveBg = style.background ?? cell.background ?? null
+        cell.char = text[i]!
+        cell.color = style.color ?? null
+        cell.background = effectiveBg
+        cell.bold = style.bold ?? false
+        cell.underline = style.underline ?? false
+        cell.italic = style.italic ?? false
+        cell.inverse = style.inverse ?? false
+        cell.dim = style.dim ?? false
       }
     }
   }
@@ -172,6 +207,7 @@ export class ScreenBuffer {
     for (let row = startY; row < endY; row++) {
       const rowCells = this.cells[row]
       if (!rowCells) continue
+      this.markRowDirty(row)
       for (let col = startX; col < endX; col++) {
         const c = rowCells[col]!
         c.char = char
@@ -241,6 +277,8 @@ export class ScreenBuffer {
     this.cells = newCells
     this.width = width
     this.height = height
+    this.dirtyRows = new Uint8Array(height)
+    this.dirtyRows.fill(1)  // All rows are dirty after resize
   }
 
   /**

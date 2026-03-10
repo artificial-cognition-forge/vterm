@@ -18,7 +18,7 @@ import type {
 import { computeFlexLayout, getFlexConfig, isFlexContainer, resolveDimension } from "./flexbox"
 import { getPadding, getMargin, getBorder, applyConstraints } from "./box-model"
 import { isScrollableNode } from "./utils"
-import { wrapText } from "./text-wrapper"
+import { wrapText, enableWrapCache, clearWrapCache } from "./text-wrapper"
 
 /**
  * Counter for generating unique node IDs
@@ -48,10 +48,19 @@ export function createLayoutNode(options: CreateLayoutNodeOptions): LayoutNode {
 }
 
 /**
+ * Index of compound selectors by their target class (for fast lookup)
+ */
+interface CompoundSelectorIndex {
+    [className: string]: Array<{ selector: string; parts: string[]; style: LayoutProperties }>
+}
+
+/**
  * Layout Engine - computes layout for a tree of layout nodes
  */
 export class LayoutEngine {
     private config: LayoutEngineConfig
+    private compoundSelectorIndex: CompoundSelectorIndex = {}
+    private styleCache: Map<string, LayoutProperties> = new Map()  // Cache by class string
 
     constructor(config: LayoutEngineConfig) {
         this.config = config
@@ -76,6 +85,38 @@ export class LayoutEngine {
     }
 
     /**
+     * Generate a cache key for class name caching
+     */
+    private getClassCacheKey(classValue: any, ancestorClasses: string[]): string {
+        // Normalize class names to a consistent string key
+        const classNames = classValue
+            ? Array.isArray(classValue)
+                ? classValue.sort().join(',')
+                : String(classValue).split(' ').sort().join(',')
+            : ''
+        const ancestorKey = ancestorClasses.length > 0 ? ':' + ancestorClasses.sort().join(',') : ''
+        return classNames + ancestorKey
+    }
+
+    /**
+     * Build compound selector index for fast O(1) lookups
+     */
+    private buildCompoundSelectorIndex(styles: Map<string, LayoutProperties>): void {
+        this.compoundSelectorIndex = {}
+        for (const [selector, style] of styles) {
+            // Only index compound selectors (contain spaces)
+            if (!selector.includes(" ")) continue
+            const parts = selector.split(/\s+/)
+            const lastPart = parts[parts.length - 1]!
+            const className = lastPart.startsWith(".") ? lastPart.slice(1) : lastPart
+            if (!this.compoundSelectorIndex[className]) {
+                this.compoundSelectorIndex[className] = []
+            }
+            this.compoundSelectorIndex[className]!.push({ selector, parts, style })
+        }
+    }
+
+    /**
      * Build a layout tree from a Vue VNode
      * Accepts styles as either a Map or a plain object (ParsedStyles)
      */
@@ -90,6 +131,12 @@ export class LayoutEngine {
             stylesMap = new Map(Object.entries(styles))
         }
 
+        // Clear caches for this build
+        this.styleCache.clear()
+
+        // Build compound selector index for O(1) lookups
+        this.buildCompoundSelectorIndex(stylesMap)
+
         const node = this.vnodeToLayoutNode(vnode, stylesMap)
         this.linkParents(node)
         return node
@@ -99,14 +146,21 @@ export class LayoutEngine {
      * Compute layout for the entire tree
      */
     computeLayout(root: LayoutNode): void {
-        this.computeNodeLayout(
-            root,
-            this.config.containerWidth,
-            this.config.containerHeight,
-            0,
-            0,
-            undefined
-        )
+        // Enable text wrapping cache for this layout pass (OPT-13)
+        enableWrapCache()
+        try {
+            this.computeNodeLayout(
+                root,
+                this.config.containerWidth,
+                this.config.containerHeight,
+                0,
+                0,
+                undefined
+            )
+        } finally {
+            // Clear cache after layout is complete to free memory
+            clearWrapCache()
+        }
     }
 
     /**
@@ -138,8 +192,17 @@ export class LayoutEngine {
             content = String(props.content)
         }
 
-        // Get styles for this node based on class names
-        const layoutProps = this.resolveStyles(props, styles, ancestorClasses)
+        // Get styles for this node - use cache to avoid recomputing for duplicate classes
+        let layoutProps: LayoutProperties
+        const classKey = this.getClassCacheKey(props.class, ancestorClasses)
+        const cached = this.styleCache.get(classKey)
+        if (cached) {
+            // Return a new object from the cache (don't share references)
+            layoutProps = { ...cached }
+        } else {
+            layoutProps = this.resolveStyles(props, styles, ancestorClasses)
+            this.styleCache.set(classKey, layoutProps)
+        }
 
         // Extract visual styles
         const style: VisualStyle = this.extractVisualStyles(layoutProps, props)
@@ -226,12 +289,9 @@ export class LayoutEngine {
                     applyStyle(classStyle)
                 }
 
-                // Compound (descendant) selectors: ".ancestor .className"
-                for (const [selector, selectorStyle] of styles) {
-                    if (!selector.includes(" ")) continue
-                    const parts = selector.split(/\s+/)
-                    const lastPart = parts[parts.length - 1]
-                    if (lastPart !== `.${className}`) continue
+                // Compound (descendant) selectors: use pre-built index for O(1) lookup
+                const compoundSelectors = this.compoundSelectorIndex[className] || []
+                for (const { parts, style: selectorStyle } of compoundSelectors) {
                     // All preceding parts must appear in ancestor class list
                     const precedingParts = parts.slice(0, -1)
                     const allMatch = precedingParts.every(part =>
@@ -779,19 +839,28 @@ export class LayoutEngine {
                 // computeFlexLayout overwrites child x/y with content-area-relative offsets,
                 // so grandchildren (already laid out with the old absolute positions) need
                 // to be shifted by the same delta.
-                const preFlex = node.children.map(c => ({
-                    x: c.layout?.x ?? 0,
-                    y: c.layout?.y ?? 0,
-                    width: c.layout?.width ?? 0,
-                    height: c.layout?.height ?? 0,
-                }))
+                // Store in object with numeric indices for O(1) access instead of allocating array of objects
+                const preFlex: Record<number, { x: number; y: number; width: number; height: number }> = {}
+                for (let i = 0; i < node.children.length; i++) {
+                    const c = node.children[i]!
+                    preFlex[i] = {
+                        x: c.layout?.x ?? 0,
+                        y: c.layout?.y ?? 0,
+                        width: c.layout?.width ?? 0,
+                        height: c.layout?.height ?? 0,
+                    }
+                }
 
                 // Apply flexbox positioning only to visible, in-flow children.
                 // Absolutely positioned children are taken out of the normal flow
                 // (CSS spec) and scrollable containers must NOT shrink children.
-                const flexChildren = node.children.filter(
-                    c => c.layoutProps.display !== "none" && c.layoutProps.position !== "absolute" && !c.props._isComment
-                )
+                // Build flexChildren array inline instead of using filter() to avoid allocation
+                const flexChildren: LayoutNode[] = []
+                for (const c of node.children) {
+                    if (c.layoutProps.display !== "none" && c.layoutProps.position !== "absolute" && !c.props._isComment) {
+                        flexChildren.push(c)
+                    }
+                }
 
                 // Auto-expand flex container height BEFORE calling computeFlexLayout.
                 // This must happen early so that flex-shrink operates on the correct

@@ -46,54 +46,42 @@ function styleStatesEqual(a: StyleState, b: StyleState): boolean {
 }
 
 /**
- * Extracts style from cell
- */
-function cellToStyle(cell: Cell): StyleState {
-  return {
-    color: cell.color,
-    background: cell.background,
-    bold: cell.bold,
-    underline: cell.underline,
-    italic: cell.italic,
-    inverse: cell.inverse,
-    dim: cell.dim,
-  }
-}
-
-/**
  * Frame differ - compares two screen buffers and generates minimal ANSI output
  */
 export class FrameDiffer {
+  private writer: AnsiWriter = new AnsiWriter()
+  private targetStyle: StyleState = createStyleState()
+
   /**
    * Diffs two buffers and generates ANSI codes
    * Returns the complete ANSI string to update the screen
    */
   diff(prev: ScreenBuffer | null, next: ScreenBuffer): string {
-    const writer = new AnsiWriter()
+    this.writer.clear()
 
     // First render: clear screen and draw everything
     if (!prev) {
-      return this.renderFull(next, writer, true)
+      return this.renderFull(next, true)
     }
 
     // Handle resize - render full but DON'T clear screen for smooth transition
     if (prev.width !== next.width || prev.height !== next.height) {
-      return this.renderFull(next, writer, false)
+      return this.renderFull(next, false)
     }
 
     // Incremental update: only changed cells
-    return this.renderIncremental(prev, next, writer)
+    return this.renderIncremental(prev, next)
   }
 
   /**
    * Renders the full buffer (first render or after resize)
    * @param clearScreen - Whether to clear the screen first (only on initial render)
    */
-  private renderFull(buffer: ScreenBuffer, writer: AnsiWriter, clearScreen = true): string {
+  private renderFull(buffer: ScreenBuffer, clearScreen = true): string {
     if (clearScreen) {
-      writer.clearScreen()
+      this.writer.clearScreen()
     }
-    writer.moveCursor(0, 0)
+    this.writer.moveCursor(0, 0)
 
     let currentStyle = createStyleState()
     const cells = buffer.getCells()
@@ -106,40 +94,41 @@ export class FrameDiffer {
         const cell = row[x]
         if (!cell) continue
 
-        // Apply style changes
-        currentStyle = this.applyStyleChanges(
-          writer,
-          currentStyle,
-          cellToStyle(cell)
-        )
+        // Apply style changes (pass cell directly to avoid allocation)
+        currentStyle = this.applyStyleChanges(currentStyle, cell)
 
         // Write character
-        writer.write(cell.char)
+        this.writer.write(cell.char)
       }
     }
 
-    writer.reset()
-    return writer.flush()
+    // Reset dirty flags for next frame
+    buffer.resetDirtyFlags()
+
+    this.writer.reset()
+    return this.writer.flush()
   }
 
   /**
    * Renders only changed cells (incremental update)
    */
-  private renderIncremental(
-    prev: ScreenBuffer,
-    next: ScreenBuffer,
-    writer: AnsiWriter
-  ): string {
+  private renderIncremental(prev: ScreenBuffer, next: ScreenBuffer): string {
     let currentStyle = createStyleState()
     const prevCells = prev.getCells()
     const nextCells = next.getCells()
 
     for (let y = 0; y < next.height; y++) {
+      // Skip clean rows (optimization: only process rows that were modified)
+      if (!next.isRowDirty(y)) {
+        continue
+      }
+
       const prevRow = prevCells[y]
       const nextRow = nextCells[y]
       if (!prevRow || !nextRow) continue
 
       let inRun = false
+      let runStr = ''
 
       for (let x = 0; x < next.width; x++) {
         const prevCell = prevRow[x]
@@ -150,38 +139,72 @@ export class FrameDiffer {
         if (!cellsEqual(prevCell, nextCell)) {
           // Start a new run
           if (!inRun) {
-            writer.moveCursor(x, y)
+            this.writer.moveCursor(x, y)
             inRun = true
           }
 
-          // Apply style changes
-          currentStyle = this.applyStyleChanges(
-            writer,
-            currentStyle,
-            cellToStyle(nextCell)
-          )
-
-          // Write character
-          writer.write(nextCell.char)
+          // Check if style changed
+          if (
+            runStr &&
+            (currentStyle.color !== nextCell.color ||
+              currentStyle.background !== nextCell.background ||
+              currentStyle.bold !== nextCell.bold ||
+              currentStyle.underline !== nextCell.underline ||
+              currentStyle.italic !== nextCell.italic ||
+              currentStyle.inverse !== nextCell.inverse ||
+              currentStyle.dim !== nextCell.dim)
+          ) {
+            // Style changed, flush the run and apply new style
+            this.writer.write(runStr)
+            runStr = ''
+            currentStyle = this.applyStyleChanges(currentStyle, nextCell)
+            runStr = nextCell.char
+          } else if (!runStr) {
+            // First character in run, apply style
+            currentStyle = this.applyStyleChanges(currentStyle, nextCell)
+            runStr = nextCell.char
+          } else {
+            // Continue run with same style
+            runStr += nextCell.char
+          }
         } else {
           // End the run
+          if (runStr) {
+            this.writer.write(runStr)
+            runStr = ''
+          }
           inRun = false
         }
       }
+
+      // Flush any remaining run
+      if (runStr) {
+        this.writer.write(runStr)
+      }
     }
 
-    writer.reset()
-    return writer.flush()
+    // Reset dirty flags for next frame
+    next.resetDirtyFlags()
+
+    this.writer.reset()
+    return this.writer.flush()
   }
 
   /**
-   * Applies minimal style changes between two states
+   * Applies minimal style changes by reading cell fields directly
+   * Reuses this.targetStyle to avoid allocations
    */
-  private applyStyleChanges(
-    writer: AnsiWriter,
-    current: StyleState,
-    target: StyleState
-  ): StyleState {
+  private applyStyleChanges(current: StyleState, cell: Cell): StyleState {
+    // Populate target style directly from cell (no allocation)
+    const target = this.targetStyle
+    target.color = cell.color
+    target.background = cell.background
+    target.bold = cell.bold
+    target.underline = cell.underline
+    target.italic = cell.italic
+    target.inverse = cell.inverse
+    target.dim = cell.dim
+
     // If styles are identical, nothing to do
     if (styleStatesEqual(current, target)) {
       return current
@@ -192,44 +215,44 @@ export class FrameDiffer {
     const needsReset = this.shouldReset(current, target)
 
     if (needsReset) {
-      writer.reset()
+      this.writer.reset()
       current = createStyleState()
     }
 
     // Apply color changes
     if (current.color !== target.color) {
-      writer.setForeground(target.color)
+      this.writer.setForeground(target.color)
       current.color = target.color
     }
 
     if (current.background !== target.background) {
-      writer.setBackground(target.background)
+      this.writer.setBackground(target.background)
       current.background = target.background
     }
 
     // Apply attribute changes
     if (current.bold !== target.bold) {
-      writer.setBold(target.bold)
+      this.writer.setBold(target.bold)
       current.bold = target.bold
     }
 
     if (current.dim !== target.dim) {
-      writer.setDim(target.dim)
+      this.writer.setDim(target.dim)
       current.dim = target.dim
     }
 
     if (current.italic !== target.italic) {
-      writer.setItalic(target.italic)
+      this.writer.setItalic(target.italic)
       current.italic = target.italic
     }
 
     if (current.underline !== target.underline) {
-      writer.setUnderline(target.underline)
+      this.writer.setUnderline(target.underline)
       current.underline = target.underline
     }
 
     if (current.inverse !== target.inverse) {
-      writer.setInverse(target.inverse)
+      this.writer.setInverse(target.inverse)
       current.inverse = target.inverse
     }
 

@@ -253,6 +253,10 @@ export interface LayoutNode {
     _inputValue?: string
     _cursorPos?: number
 
+    // Style cache (for performance optimization)
+    _cachedEffectiveStyle?: VisualStyle
+    _cachedStyleState?: string  // Tracks hover|focus|active|none state
+
     // Original VNode data (for debugging)
     _vnode?: any
 }

@@ -67,6 +67,7 @@ export class RenderingPass {
   private interactionManager?: InteractionManager
   private selectionManager?: SelectionManager
   private isTextPass: boolean = false
+  private borderStringCache = new Map<string, string>()
 
   constructor(
     buffer: ScreenBuffer,
@@ -76,6 +77,19 @@ export class RenderingPass {
     this.buffer = buffer
     this.interactionManager = interactionManager
     this.selectionManager = selectionManager
+  }
+
+  /**
+   * Get or create a repeated string from cache
+   */
+  private getRepeatedString(char: string, n: number): string {
+    if (n <= 0) return ''
+    const key = `${char}:${n}`
+    const cached = this.borderStringCache.get(key)
+    if (cached) return cached
+    const s = char.repeat(n)
+    this.borderStringCache.set(key, s)
+    return s
   }
 
   /**
@@ -407,7 +421,7 @@ export class RenderingPass {
 
     // Top border
     if (width > 2) {
-      this.buffer.write(x + 1, y, chars.horizontal.repeat(width - 2), cellStyle)
+      this.buffer.write(x + 1, y, this.getRepeatedString(chars.horizontal, width - 2), cellStyle)
     }
 
     // Top-right corner
@@ -424,7 +438,7 @@ export class RenderingPass {
 
     // Bottom border
     if (width > 2) {
-      this.buffer.write(x + 1, y + height - 1, chars.horizontal.repeat(width - 2), cellStyle)
+      this.buffer.write(x + 1, y + height - 1, this.getRepeatedString(chars.horizontal, width - 2), cellStyle)
     }
 
     // Bottom-right corner
@@ -555,9 +569,21 @@ export class RenderingPass {
   }
 
   /**
-   * Get effective style (base + interactive state)
+   * Get effective style (base + interactive state) with caching
    */
   private getEffectiveStyle(node: LayoutNode): VisualStyle {
+    // Compute current interaction state key
+    let stateKey = 'none'
+    if (this.interactionManager) {
+      const state = this.interactionManager.getState(node)
+      stateKey = `${state.active ? 'a' : ''}${state.focus ? 'f' : ''}${state.hover ? 'h' : ''}` || 'none'
+    }
+
+    // Check cache
+    if (node._cachedEffectiveStyle && node._cachedStyleState === stateKey) {
+      return node._cachedEffectiveStyle
+    }
+
     const uaStyle: Partial<VisualStyle> =
       node.type === "button"
         ? { bg: "blue" }
@@ -568,7 +594,11 @@ export class RenderingPass {
             : {}
     const baseStyle = { ...uaStyle, ...node.style }
 
-    if (!this.interactionManager) return baseStyle
+    if (!this.interactionManager) {
+      node._cachedEffectiveStyle = baseStyle
+      node._cachedStyleState = stateKey
+      return baseStyle
+    }
 
     const state = this.interactionManager.getState(node)
     let effectiveStyle = { ...baseStyle }
@@ -585,6 +615,9 @@ export class RenderingPass {
       effectiveStyle = { ...effectiveStyle, ...node.style.active }
     }
 
+    // Cache the result
+    node._cachedEffectiveStyle = effectiveStyle
+    node._cachedStyleState = stateKey
     return effectiveStyle
   }
 
