@@ -116,6 +116,25 @@ export interface VTermConfig {
 }
 
 /**
+ * Metadata for a page component.
+ * Passed to definePageMeta() in page scripts.
+ * The layout property is augmented by the generated .vterm/layouts.d.ts
+ * with the exact layout names available in app/layout/.
+ */
+export interface PageMeta {
+    /** Layout to use for this page. false = no layout. Defaults to 'default'. */
+    layout?: string | false
+    [key: string]: any
+}
+
+/**
+ * Define metadata for a page component.
+ * This is a no-op at runtime — metadata is extracted at build time
+ * and embedded in the route manifest (.vterm/routes.ts).
+ */
+export function definePageMeta(_meta: PageMeta): void {}
+
+/**
  * Define a vterm config with sensible defaults.
  * Use this in your vterm.config.ts instead of a plain object.
  */

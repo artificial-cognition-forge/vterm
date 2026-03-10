@@ -53,6 +53,6 @@ export { useKeys, useScreen, useFocus, useRender } from "../core/platform/compos
 export { useStore, createStore, type Store, type StoreOptions } from "../core/platform/store/store"
 
 /**
- * Config primitive
+ * Config primitive and page metadata
  */
-export { defineVtermConfig, type VTermConfig } from "../types/types"
+export { defineVtermConfig, definePageMeta, type VTermConfig, type PageMeta } from "../types/types"

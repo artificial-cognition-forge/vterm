@@ -64,6 +64,8 @@ export async function initAutoImports(cwd: string = process.cwd()) {
           'createStore',
           // Config
           'defineVtermConfig',
+          // Page metadata (no-op at runtime, extracted at build time)
+          'definePageMeta',
         ],
       },
     ],
@@ -135,6 +137,7 @@ export function generateTsConfig(): string {
     },
     "include": [
       "./auto-imports.d.ts",
+      "./layouts.d.ts",
       "../vterm.config.ts",
       "../app/**/*.ts",
       "../app/**/*.vue"

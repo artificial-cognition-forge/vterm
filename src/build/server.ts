@@ -4,6 +4,7 @@ import { vterm } from "../core/vterm"
 import { clearComponentCache } from "../core/compiler/sfc-loader"
 import { initAutoImports, clearAutoImports, generateTypeDeclarations, generateTsConfig } from "./auto-imports"
 import { generateRoutesModule } from "./routes"
+import { generateLayoutsTypeDeclarations } from "./layouts"
 import { getGlobalRouter } from "../core/router"
 import type { VTermConfig, VTermApp } from "../types/types"
 
@@ -110,6 +111,15 @@ export async function startDevServer(config: VTermConfig): Promise<void> {
       console.error('Failed to regenerate routes:', error)
     }
 
+    // Regenerate layout type declarations from app/layout/
+    try {
+      const layoutsDeclarations = await generateLayoutsTypeDeclarations()
+      const layoutsDtsPath = resolve(process.cwd(), '.vterm/layouts.d.ts')
+      await Bun.write(layoutsDtsPath, layoutsDeclarations)
+    } catch (error) {
+      console.error('Failed to regenerate layout declarations:', error)
+    }
+
     // Recreate the app
     await createApp()
 
@@ -154,6 +164,11 @@ export async function startDevServer(config: VTermConfig): Promise<void> {
     const routesModule = await generateRoutesModule()
     const routesPath = resolve(vtermDir, 'routes.ts')
     await Bun.write(routesPath, routesModule)
+
+    // Generate layouts.d.ts from app/layout/
+    const layoutsDeclarations = await generateLayoutsTypeDeclarations()
+    const layoutsDtsPath = resolve(vtermDir, 'layouts.d.ts')
+    await Bun.write(layoutsDtsPath, layoutsDeclarations)
   } catch (error) {
     console.error('Failed to generate type declarations:', error)
     throw error
