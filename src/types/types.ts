@@ -118,12 +118,15 @@ export interface VTermConfig {
 /**
  * Metadata for a page component.
  * Passed to definePageMeta() in page scripts.
- * The layout property is augmented by the generated .vterm/layouts.d.ts
- * with the exact layout names available in app/layout/.
+ *
+ * The `layout` property is NOT declared here — it is added exclusively by the
+ * generated .vterm/layouts.d.ts via module augmentation, with the exact union
+ * of layout names found in app/layout/. This ensures the IDE shows the narrow
+ * type ('default' | false) rather than the wide string fallback.
+ *
+ * Other per-page metadata can be added via additional module augmentations.
  */
 export interface PageMeta {
-    /** Layout to use for this page. false = no layout. Defaults to 'default'. */
-    layout?: string | false
     [key: string]: any
 }
 

@@ -34,19 +34,17 @@ export async function scanLayouts(cwd: string = process.cwd()): Promise<LayoutEn
 export async function generateLayoutsTypeDeclarations(cwd: string = process.cwd()): Promise<string> {
   const layouts = await scanLayouts(cwd)
 
-  if (layouts.length === 0) {
-    return `// Auto-generated layout types — no layouts found in app/layout/
-export {}
-`
-  }
-
-  const layoutUnion = layouts.map(l => `'${l.name}'`).join(' | ')
+  // Even with no layouts we emit a fallback so `layout` is always typed.
+  const layoutUnion = layouts.length > 0
+    ? layouts.map(l => `'${l.name}'`).join(' | ')
+    : 'string'
 
   return `// Auto-generated layout types from app/layout/
 // Do not edit manually — regenerated on dev server start and vterm build
 
 declare module '@arcforge/vterm' {
   interface PageMeta {
+    /** Layout to wrap this page. \`false\` disables the layout. Defaults to \`'default'\`. */
     layout?: ${layoutUnion} | false
   }
 }
