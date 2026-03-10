@@ -1,29 +1,27 @@
 <template>
-  <div>
-    <div class="content2">b</div>
-    <div class="content">a</div>
+  <div class="container">
+    <div class="sidebar">
+      <a href="">hello</a>
+    </div>
+    <div class="content">content</div>
   </div>
 </template>
 
 <style scoped>
 .container {
   display: flex;
+  height: 100%;
+  width: 100%;
 }
 
 .sidebar {
-  width: 20;
+  width: 15;
   background: red;
   display: flex;
 }
 
-.content2 {
-  width: 5;
-  height: 100%;
-  background: pink;
-}
-
 .content {
-  width: 25;
+  width: 100%;
   height: 100%;
   background: pink;
 }

@@ -7,8 +7,10 @@
     "prepare": "vterm prepare"
   },
   "devDependencies": {
-    "@arcforge/vterm": "latest",
     "@types/bun": "latest",
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@arcforge/vterm": "/home/cody/git/vterm"
   }
 }
