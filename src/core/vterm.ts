@@ -274,16 +274,20 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         if (currentLayoutRoot) performLayout(currentLayoutRoot)
     })
 
+    // Create mount container — must be created before the layout renderer so the
+    // callback can always use it as the layout root. The renderer may otherwise
+    // track an intermediate node (e.g. the first flex child inserted) and miss
+    // sibling elements entirely.
+    const container = createLayoutNodeElement("div", allStyles)
+    container.layoutProps = { ...container.layoutProps, width: "100%", height: "100%", scrollableY: true }
+
     // Create layout renderer with update callback
-    // The layoutRoot parameter is Vue's tracked root container - this is what gets populated
-    // when Vue mounts and renders components into it
-    const { createApp } = createLayoutRenderer(allStyles, (layoutRoot: LayoutNode | null) => {
-        if (!layoutRoot) return
-
-        // Store the layout root for resize handling
-        currentLayoutRoot = layoutRoot
-
-        performLayout(layoutRoot)
+    // Always use the mount container as the layout root regardless of which node
+    // the renderer's internal tracking chose — it sets rootContainer to the first
+    // insert's parent which may be an inner node, not the true tree root.
+    const { createApp } = createLayoutRenderer(allStyles, () => {
+        currentLayoutRoot = container
+        performLayout(container)
     })
 
     // Listen for terminal resize events and recompute layout
@@ -326,8 +330,6 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     // Mount the app — root container fills the terminal so height: 100% resolves correctly.
     // scrollableY: true gives page-level overflow: auto — content taller than the screen
     // can be scrolled without the user having to mark anything explicitly.
-    const container = createLayoutNodeElement("div", allStyles)
-    container.layoutProps = { ...container.layoutProps, width: "100%", height: "100%", scrollableY: true }
     app.mount(container)
 
     // Trigger initial layout and render after mount completes

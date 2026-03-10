@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <div class="sidebar">
-      <a href="">hello</a>
+      <div>hello</div>
     </div>
     <div class="content">content</div>
   </div>
