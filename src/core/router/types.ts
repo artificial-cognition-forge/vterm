@@ -5,6 +5,10 @@ export interface Route {
     component?: Component
     componentPath?: string
     name?: string
+    meta?: {
+        layout?: string | false
+        [key: string]: any
+    }
 }
 
 export interface RouteMatch {

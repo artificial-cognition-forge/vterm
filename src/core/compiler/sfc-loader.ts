@@ -1,4 +1,4 @@
-import { parse, compileScript, compileTemplate } from "@vue/compiler-sfc"
+import { parse, compileScript, compileTemplate, parseCache } from "@vue/compiler-sfc"
 import { resolve, dirname } from "path"
 import * as vue from "vue"
 import { transform } from "sucrase"
@@ -92,6 +92,8 @@ const STATIC_MODULE_SCOPE = Object.freeze({
     useScreen: composables.useScreen,
     useFocus: composables.useFocus,
     useRender: composables.useRender,
+    // Page metadata (no-op at runtime — extracted at build time into route meta)
+    definePageMeta: (_meta: any) => {},
     // Storage utilities
     useStore: store.useStore,
     createStore: store.createStore,
@@ -177,6 +179,12 @@ export function clearComponentCache() {
     runtimeComposablesCache = null
     globalStyles.clear()
     cachedRoutes = null
+    // Clear Vue's internal SFC parse cache so that the next compilation gets a
+    // fresh, unmutated descriptor. Without this, compileScript mutates the cached
+    // descriptor on first use and subsequent hot-reload compilations receive the
+    // stale mutated object, causing imported components (e.g. <Sidebar />) to be
+    // compiled as string elements instead of component references.
+    parseCache.clear()
 }
 
 /**

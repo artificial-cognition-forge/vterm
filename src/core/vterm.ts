@@ -210,6 +210,26 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         }
     }
 
+    // Load per-page layouts from app/layout/ directory
+    const layoutsMap = new Map<string, any>()
+    try {
+        const { resolve: resolvePath } = await import("path")
+        const { existsSync } = await import("fs")
+        const { glob } = await import("glob")
+
+        const layoutDir = resolvePath(process.cwd(), 'app/layout')
+        if (existsSync(layoutDir)) {
+            const layoutFiles = await glob('**/*.vue', { cwd: layoutDir, absolute: false })
+            for (const file of layoutFiles) {
+                const name = file.replace(/\.vue$/, '').replace(/\//g, '-')
+                const component = await loadSFC(resolvePath(layoutDir, file))
+                layoutsMap.set(name, component)
+            }
+        }
+    } catch {
+        // No layouts directory - skip
+    }
+
     // Determine component to render
     let component: any
     if (routes.length > 0) {
@@ -325,6 +345,9 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     const storeRegistry = new Map<string, Store>()
     app.provide(StoreSymbol, storeRegistry)
     app.provide(StoreOptionsSymbol, options.store || {})
+
+    // Provide layouts registry for RouterView
+    app.provide('vterm-layouts', layoutsMap)
 
     // Install router if routes exist
     if (routes.length > 0) {

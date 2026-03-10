@@ -53,6 +53,7 @@ export const RouterView = defineComponent({
         }
 
         const routes = (inject("vterm-routes") as Route[]) || []
+        const layouts = inject("vterm-layouts") as Map<string, any> | undefined
         const NotFoundComponent = inject("vterm-error-not-found") as any
         const ServerErrorComponent = inject("vterm-error-server") as any
 
@@ -60,12 +61,10 @@ export const RouterView = defineComponent({
             const currentPath = (router as any).currentPath.value
             const route = (router as any).currentRoute.value
 
-
             const matchedRoute = routes.find(r => {
                 const { match } = matchRoute(r.path, currentPath)
                 return match
             })
-
 
             if (!matchedRoute) {
                 if (NotFoundComponent) {
@@ -76,7 +75,6 @@ export const RouterView = defineComponent({
                     h("a", { href: "/" }, "Go to home"),
                 ])
             }
-
 
             if (!matchedRoute.component) {
                 console.warn("[RouterView] No component for route:", matchedRoute.path)
@@ -89,10 +87,21 @@ export const RouterView = defineComponent({
             }
 
             try {
-                return h(matchedRoute.component, {
-                    ...route.params,
-                    route,
-                })
+                const pageVNode = h(matchedRoute.component, { ...route.params, route })
+
+                // Determine which layout to use:
+                // - route.meta.layout = 'name'  → use named layout
+                // - route.meta.layout = false   → no layout (render page directly)
+                // - no meta.layout              → use 'default' layout if it exists
+                const meta = matchedRoute.meta || {}
+                const layoutName = meta.layout !== undefined ? meta.layout : 'default'
+
+                if (layoutName !== false && layouts?.has(String(layoutName))) {
+                    const layoutComponent = layouts.get(String(layoutName))
+                    return h(layoutComponent, {}, { default: () => pageVNode })
+                }
+
+                return pageVNode
             } catch (error) {
                 console.error("[RouterView] Error rendering component:", error)
                 if (ServerErrorComponent) {

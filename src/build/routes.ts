@@ -10,6 +10,28 @@ export interface RouteEntry {
   path: string
   filePath: string
   name: string
+  meta?: Record<string, any>
+}
+
+/**
+ * Extract metadata from definePageMeta() calls in a page file
+ * Handles: definePageMeta({ layout: 'name' }) and definePageMeta({ layout: false })
+ */
+async function extractPageMeta(filePath: string): Promise<Record<string, any> | undefined> {
+  try {
+    const source = await Bun.file(filePath).text()
+    const match = source.match(/definePageMeta\s*\(\s*\{([\s\S]*?)\}\s*\)/)
+    if (!match || !match[1]) return undefined
+    const body = match[1]
+    const meta: Record<string, any> = {}
+    const layoutMatch = body.match(/layout\s*:\s*(?:'([^']*)'|"([^"]*)"|(false))/)
+    if (layoutMatch) {
+      meta.layout = layoutMatch[3] === 'false' ? false : (layoutMatch[1] ?? layoutMatch[2])
+    }
+    return Object.keys(meta).length > 0 ? meta : undefined
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -84,18 +106,20 @@ export async function scanRoutes(cwd: string = process.cwd()): Promise<RouteEntr
     absolute: false,
   })
 
-  // Generate route entries
-  const routes: RouteEntry[] = vueFiles.map(filePath => {
+  // Generate route entries (with meta extracted from each page file)
+  const routes: RouteEntry[] = await Promise.all(vueFiles.map(async filePath => {
     const routePath = filePathToRoutePath(filePath)
     const routeName = filePathToRouteName(filePath)
     const absoluteFilePath = resolve(pagesDir, filePath)
+    const meta = await extractPageMeta(absoluteFilePath)
 
     return {
       path: routePath,
       filePath: absoluteFilePath,
       name: routeName,
+      ...(meta ? { meta } : {}),
     }
-  })
+  }))
 
   // Sort routes by specificity (more specific routes first)
   // This ensures /users/:id comes after /users/profile
@@ -142,7 +166,8 @@ export const routes = []
 
   // Generate routes array with file paths instead of component imports
   const routesArray = routes.map((route) => {
-    return `  { path: '${route.path}', componentPath: '${route.filePath}', name: '${route.name}' }`
+    const metaPart = route.meta ? `, meta: ${JSON.stringify(route.meta)}` : ''
+    return `  { path: '${route.path}', componentPath: '${route.filePath}', name: '${route.name}'${metaPart} }`
   }).join(',\n')
 
   return `// Auto-generated routes from app/pages directory

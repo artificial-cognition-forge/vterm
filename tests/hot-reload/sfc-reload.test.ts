@@ -14,8 +14,24 @@ import { test, expect, describe, beforeEach, afterEach } from 'bun:test'
 import { mkdirSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { createVNode } from 'vue'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Render a component's setup function and return the first-level children vnodes.
+ * Used to verify that sub-components compile as Vue components (shapeFlag=4)
+ * rather than as string elements (shapeFlag=1).
+ */
+function getRenderedChildren(component: any): Array<{ type: any; shapeFlag: number }> {
+  if (!component?.setup) return []
+  const setupResult = component.setup({}, { attrs: {}, slots: {}, emit: () => {} })
+  if (typeof setupResult !== 'function') return []
+  const vnode = setupResult({} as any, [])
+  const children = vnode?.children
+  if (!Array.isArray(children)) return []
+  return children.map((c: any) => ({ type: c?.type, shapeFlag: c?.shapeFlag ?? 0 }))
+}
 
 /** Create a temp directory with Vue SFC files for testing. */
 function createTempProject(): { dir: string; cleanup: () => void } {
@@ -192,6 +208,60 @@ import Sidebar from '../components/sidebar.vue';
     const hasSetup1 = typeof component1.setup === 'function'
     const hasSetup2 = typeof component2.setup === 'function'
     expect(hasSetup1).toBe(hasSetup2)
+
+    clearAutoImports()
+  })
+
+  test('sub-component renders as Vue component (shapeFlag=4) not string element after hot reload', async () => {
+    // Regression test: on hot reload, @vue/compiler-sfc returns a mutated descriptor
+    // from its internal parse cache. The mutation causes compileScript to compile
+    // <Sidebar /> as _createElementVNode("Sidebar") (shapeFlag=1, ELEMENT) instead of
+    // _createVNode(SidebarComponent) (shapeFlag=4, STATEFUL_COMPONENT).
+    // Fix: clearComponentCache() now calls parseCache.clear() to invalidate stale descriptors.
+    const { dir } = tmpProject
+
+    writeFileSync(
+      join(dir, 'app', 'components', 'sidebar.vue'),
+      `<template><div class="sidebar">nav</div></template>\n<script setup lang="ts"></script>`
+    )
+    writeFileSync(
+      join(dir, 'app', 'pages', 'index.vue'),
+      `<template>
+  <div class="container">
+    <Sidebar />
+    <div class="content">content</div>
+  </div>
+</template>
+<script setup lang="ts">
+import Sidebar from '../components/sidebar.vue';
+</script>`
+    )
+
+    const { initAutoImports, clearAutoImports } = await import('../../src/build/auto-imports')
+    const { loadSFC, clearComponentCache } = await import('../../src/core/compiler/sfc-loader')
+
+    const pagePath = join(dir, 'app', 'pages', 'index.vue')
+    const STATEFUL_COMPONENT = 4
+
+    // First boot
+    clearAutoImports()
+    await initAutoImports(dir)
+    clearComponentCache()
+    const comp1 = await loadSFC(pagePath)
+    const children1 = getRenderedChildren(comp1)
+    const sidebar1 = children1.find(c => typeof c.type !== 'string')
+    expect(sidebar1).toBeDefined()
+    expect(sidebar1!.shapeFlag).toBe(STATEFUL_COMPONENT)
+
+    // Hot reload — must produce identical vnode shape
+    clearComponentCache()
+    clearAutoImports()
+    await initAutoImports(dir)
+    const comp2 = await loadSFC(pagePath)
+    const children2 = getRenderedChildren(comp2)
+    const sidebar2 = children2.find(c => typeof c.type !== 'string')
+    expect(sidebar2).toBeDefined()
+    expect(sidebar2!.shapeFlag).toBe(STATEFUL_COMPONENT)
 
     clearAutoImports()
   })

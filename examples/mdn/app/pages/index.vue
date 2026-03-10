@@ -1,32 +1,24 @@
 <template>
-  <div class="container">
-    <Sidebar />
-    <div class="content">content</div>
+  <div class="content">
+    <h1>Welcome to MDN</h1>
+    <p>Select an HTML element from the sidebar to learn more.</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import Sidebar from '../components/sidebar.vue';
+definePageMeta({
+  layout: "default"
+}) 
 </script>
 
 <style scoped>
-.container {
-  display: flex;
-  height: 100%;
+.content {
   width: 100%;
-}
-
-a:hover {
-  color: blue;
+  height: 100%;
+  padding: 1 2;
 }
 
 h1 {
   margin-bottom: 1;
-}
-
-
-.content {
-  width: 100%;
-  height: 100%;
 }
 </style>
