@@ -18,7 +18,7 @@ export interface KeyEvent {
  */
 export interface MouseEvent {
     type: "mousedown" | "mouseup" | "mousemove" | "wheelup" | "wheeldown"
-    button: "left" | "middle" | "right" | "none"
+    button: "left" | "middle" | "right" | "back" | "forward" | "none"
     x: number // 0-indexed column
     y: number // 0-indexed row
     ctrl: boolean
@@ -153,7 +153,7 @@ export class InputParser extends EventEmitter {
         const x = parseInt(cxStr!, 10) - 1 // Convert to 0-indexed
         const y = parseInt(cyStr!, 10) - 1 // Convert to 0-indexed
         // Parse button and modifiers from cb
-        const buttonCode = cb & 0x03
+        const buttonCode = cb & 0x3f
         const shift = !!(cb & 0x04)
         const meta = !!(cb & 0x08)
         const ctrl = !!(cb & 0x10)
@@ -170,26 +170,30 @@ export class InputParser extends EventEmitter {
             // Wheel event
             type = cb === 64 ? "wheelup" : "wheeldown"
             button = "none"
+        } else if (cb === 8 || cb === 9) {
+            // Back/forward mouse buttons (buttons 4 and 5 in X11 terminology)
+            type = action === "M" ? "mousedown" : "mouseup"
+            button = cb === 8 ? "back" : "forward"
         } else if (move) {
             // Move events
             type = "mousemove"
             button =
-                buttonCode === 0
+                (buttonCode & 0x03) === 0
                     ? "left"
-                    : buttonCode === 1
+                    : (buttonCode & 0x03) === 1
                       ? "middle"
-                      : buttonCode === 2
+                      : (buttonCode & 0x03) === 2
                         ? "right"
                         : "none"
         } else {
             // Click events
             type = action === "M" ? "mousedown" : "mouseup"
             button =
-                buttonCode === 0
+                (buttonCode & 0x03) === 0
                     ? "left"
-                    : buttonCode === 1
+                    : (buttonCode & 0x03) === 1
                       ? "middle"
-                      : buttonCode === 2
+                      : (buttonCode & 0x03) === 2
                         ? "right"
                         : "none"
         }

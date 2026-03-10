@@ -1,11 +1,13 @@
 <template>
   <div class="container">
-    <div class="sidebar">
-      <div>hello</div>
-    </div>
+    <Sidebar />
     <div class="content">content</div>
   </div>
 </template>
+
+<script setup lang="ts">
+import Sidebar from '../components/sidebar.vue';
+</script>
 
 <style scoped>
 .container {
@@ -14,10 +16,19 @@
   width: 100%;
 }
 
+a:hover {
+  color: blue;
+}
+
+h1 {
+  margin-bottom: 1;
+}
+
 .sidebar {
+  display: flex;
+  flex-direction: column;
   width: 15;
   background: red;
-  display: flex;
 }
 
 .content {

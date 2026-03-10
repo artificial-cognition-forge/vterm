@@ -30,9 +30,12 @@ export function createRouter(routes: Route[]) {
         return { path, params: {}, query }
     })
 
+    const forwardStack: string[] = []
+
     const navigate = (path: string) => {
         currentPath.value = path
         history.push(path)
+        forwardStack.length = 0
     }
 
     const push = navigate
@@ -40,12 +43,21 @@ export function createRouter(routes: Route[]) {
     const replace = (path: string) => {
         currentPath.value = path
         history[history.length - 1] = path
+        forwardStack.length = 0
     }
 
     const back = () => {
         if (history.length > 1) {
-            history.pop()
-            currentPath.value = history[history.length - 1]
+            forwardStack.push(history.pop()!)
+            currentPath.value = history[history.length - 1]!
+        }
+    }
+
+    const forward = () => {
+        if (forwardStack.length > 0) {
+            const path = forwardStack.pop()!
+            history.push(path)
+            currentPath.value = path
         }
     }
 
@@ -56,6 +68,7 @@ export function createRouter(routes: Route[]) {
         push,
         replace,
         back,
+        forward,
     }
 
     return {

@@ -19,7 +19,7 @@ import { createLayoutEngine } from "./layout/tree"
 import { loadSFC, getAllStyles, registerRenderCallback } from "./compiler/sfc-loader"
 import { ScreenSymbol, RenderSymbol, InteractionSymbol } from "./platform/composables/exports"
 import { StoreSymbol, StoreOptionsSymbol, type Store } from "./platform/store/store"
-import { installRouter, loadDefaultRoutes } from "./router"
+import { installRouter, loadDefaultRoutes, getGlobalRouter } from "./router"
 import { getElement } from "../runtime/elements/index"
 import { setHighlightCallback, configureHighlighter } from "../runtime/elements/highlighter"
 import type { VTermOptions, VTermApp } from "../types/types"
@@ -65,6 +65,18 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
 
     // Listen to mouse events — forward to both managers independently
     inputParser.on("mouse", mouseEvent => {
+        // Back/forward mouse buttons trigger router navigation
+        if (mouseEvent.type === "mousedown") {
+            if (mouseEvent.button === "back") {
+                getGlobalRouter()?.back()
+                return
+            }
+            if (mouseEvent.button === "forward") {
+                getGlobalRouter()?.forward()
+                return
+            }
+        }
+
         interactionManager.handleMouseEvent(mouseEvent, currentLayoutRoot)
         selectionManager.handleMouseEvent(mouseEvent)
 
