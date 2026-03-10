@@ -73,6 +73,7 @@ export const RouterView = defineComponent({
                 }
                 return h("div", { width: "100%", height: "100%" }, [
                     h("p", `404: Route not found - ${currentPath}`),
+                    h("a", { href: "/" }, "Go to home"),
                 ])
             }
 

@@ -4,6 +4,7 @@ import { vterm } from "../core/vterm"
 import { clearComponentCache } from "../core/compiler/sfc-loader"
 import { initAutoImports, clearAutoImports, generateTypeDeclarations, generateTsConfig } from "./auto-imports"
 import { generateRoutesModule } from "./routes"
+import { getGlobalRouter } from "../core/router"
 import type { VTermConfig, VTermApp } from "../types/types"
 
 /**
@@ -84,9 +85,12 @@ export async function startDevServer(config: VTermConfig): Promise<void> {
    * Reload the app (for file watching)
    */
   async function reloadApp() {
+    // Save current route before unmounting so we can restore it after reload
+    const previousRoute = getGlobalRouter()?.currentPath?.value ?? '/'
+
     // Cleanup current app (terminal will be restored)
     if (app) {
-      app.unmount()
+      await app.unmount()
       app = null
     }
 
@@ -108,6 +112,11 @@ export async function startDevServer(config: VTermConfig): Promise<void> {
 
     // Recreate the app
     await createApp()
+
+    // Restore the previous route so the user stays on the same page
+    if (previousRoute !== '/') {
+      getGlobalRouter()?.navigate(previousRoute)
+    }
   }
 
   // Initialize auto-imports before creating the app

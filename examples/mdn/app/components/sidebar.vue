@@ -30,4 +30,10 @@ const sidebar = ref({
 })
 </script>
 
-<style lang='scss' scoped></style>
+<style lang='scss' scoped>
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 15;
+}
+</style>

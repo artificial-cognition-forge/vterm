@@ -85,12 +85,12 @@ export async function initAutoImports(cwd: string = process.cwd()) {
  * Transform code to inject auto-imports
  * Call this BEFORE compiling/transforming the script
  */
-export async function transformWithAutoImports(code: string): Promise<string> {
+export async function transformWithAutoImports(code: string, id?: string): Promise<string> {
   if (!unimportInstance) {
     throw new Error('Auto-imports not initialized. Call initAutoImports() first.')
   }
 
-  const result = await unimportInstance.injectImports(code)
+  const result = await unimportInstance.injectImports(code, id)
   return result.code
 }
 
@@ -155,8 +155,13 @@ export async function getRuntimeComposables(): Promise<Record<string, any>> {
   const composables: Record<string, any> = {}
 
   for (const imp of imports) {
-    // Only include imports from local files (not from @arcforge/vterm)
-    if (imp.from && !imp.from.startsWith('@arcforge/vterm') && !imp.from.startsWith('vue')) {
+    // Only include imports from local composable/utility files.
+    // Skip framework imports and .vue component files — components are
+    // handled by loadSFC's import extraction, not by dynamic require here.
+    if (imp.from &&
+        !imp.from.startsWith('@arcforge/vterm') &&
+        !imp.from.startsWith('vue') &&
+        !imp.from.endsWith('.vue')) {
       try {
         const module = await import(imp.from)
         composables[imp.as || imp.name] = module[imp.name]

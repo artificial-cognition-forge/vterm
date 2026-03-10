@@ -176,6 +176,7 @@ export function clearComponentCache() {
     componentCache.clear()
     runtimeComposablesCache = null
     globalStyles.clear()
+    cachedRoutes = null
 }
 
 /**
@@ -286,8 +287,9 @@ export async function loadSFC(filepath: string): Promise<any> {
     let source = await Bun.file(absolutePath).text()
 
     // Apply auto-imports to the entire source BEFORE parsing
-    // This ensures proper source mapping in the Vue compiler
-    source = await transformWithAutoImports(source)
+    // Pass the file path so unimport knows it's a Vue SFC and injects
+    // imports inside the <script> block rather than at the top of the file.
+    source = await transformWithAutoImports(source, absolutePath)
 
     // Parse the SFC
     const { descriptor, errors } = parse(source, {

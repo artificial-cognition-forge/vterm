@@ -24,16 +24,9 @@ h1 {
   margin-bottom: 1;
 }
 
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  width: 15;
-  background: red;
-}
 
 .content {
   width: 100%;
   height: 100%;
-  background: pink;
 }
 </style>

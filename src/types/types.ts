@@ -195,7 +195,7 @@ export interface VTermApp {
     app: App
 
     /** Unmount the app and cleanup */
-    unmount: () => void
+    unmount: () => Promise<void>
 
     /** Manually trigger a screen render */
     render: () => void

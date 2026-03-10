@@ -162,7 +162,6 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     try {
         const { resolve } = await import("path")
         const routesPath = resolve(process.cwd(), ".vterm/routes.ts")
-        delete require.cache[routesPath]
         const routesModule = await import(routesPath + "?t=" + Date.now())
         if (routesModule.routes && routesModule.routes.length > 0) {
             routes = await Promise.all(
