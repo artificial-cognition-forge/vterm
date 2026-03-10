@@ -170,13 +170,16 @@ function layoutSingleLine(
   alignItems: FlexConfig['alignItems'],
   allowShrink: boolean = true
 ): void {
-  // Resolve per-child margins on the main axis
-  const childMargins = children.map(c => c.layout?.margin ?? { top: 0, right: 0, bottom: 0, left: 0 })
-  const mainMargins = childMargins.map(m => ({
-    start: isRow ? m.left : m.top,
-    end: isRow ? m.right : m.bottom,
-  }))
-  const totalMainMargins = mainMargins.reduce((sum, m) => sum + m.start + m.end, 0)
+  // OPT-20: Calculate main axis margins in single pass instead of two allocations
+  const mainMargins: Array<{ start: number; end: number }> = []
+  let totalMainMargins = 0
+  for (let i = 0; i < children.length; i++) {
+    const margin = children[i]!.layout?.margin ?? { top: 0, right: 0, bottom: 0, left: 0 }
+    const start = isRow ? margin.left : margin.top
+    const end = isRow ? margin.right : margin.bottom
+    mainMargins.push({ start, end })
+    totalMainMargins += start + end
+  }
 
   // --- Step 1: Determine base sizes (inner sizes, excluding margins) ---
   const baseSizes: number[] = []
@@ -214,13 +217,17 @@ function layoutSingleLine(
     // Absorb overflow proportionally via flex-shrink (weighted by base size).
     // Skipped for scrollable containers — items should overflow, not compress.
     const deficit = -hypotheticalFree
-    const weightedShrinks = children.map((c, i) =>
-      (c.layoutProps.flexShrink ?? 1) * (baseSizes[i] ?? 0)
-    )
-    const totalWeightedShrink = weightedShrinks.reduce((a, b) => a + b, 0)
+
+    // OPT-20: Calculate totalWeightedShrink in single pass, then apply shrinks in second pass
+    let totalWeightedShrink = 0
+    for (let i = 0; i < children.length; i++) {
+      const weight = (children[i]!.layoutProps.flexShrink ?? 1) * (baseSizes[i] ?? 0)
+      totalWeightedShrink += weight
+    }
+
     if (totalWeightedShrink > 0) {
       for (let i = 0; i < children.length; i++) {
-        const weight = weightedShrinks[i] ?? 0
+        const weight = (children[i]!.layoutProps.flexShrink ?? 1) * (baseSizes[i] ?? 0)
         if (weight > 0) {
           adjustedSizes[i] = Math.max(0, (adjustedSizes[i] ?? 0) - (weight / totalWeightedShrink) * deficit)
         }
@@ -237,7 +244,15 @@ function layoutSingleLine(
   }
 
   // Round to integer sizes and apply to child layouts
-  const finalSizes = adjustedSizes.map(s => Math.round(s))
+  // OPT-20: Calculate totalFinal while applying sizes to avoid extra reduce() pass
+  const finalSizes: number[] = []
+  let totalFinal = 0
+  for (let i = 0; i < adjustedSizes.length; i++) {
+    const rounded = Math.round(adjustedSizes[i]!)
+    finalSizes.push(rounded)
+    totalFinal += rounded
+  }
+
   for (let i = 0; i < children.length; i++) {
     const child = children[i]!
     if (!child.layout) continue
@@ -249,7 +264,6 @@ function layoutSingleLine(
   }
 
   // --- Step 3: Compute remaining free space for justify-content ---
-  const totalFinal = finalSizes.reduce((a, b) => a + b, 0)
   const freeSpace = Math.max(0, containerMainSize - totalFinal - totalGaps - totalMainMargins)
 
   // Calculate starting offset and inter-item spacing based on justify-content

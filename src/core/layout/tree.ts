@@ -402,7 +402,12 @@ export class LayoutEngine {
                     : "row"
 
             for (const child of node.children) {
-                this.computeNodeLayout(child, contentWidth, contentHeight, contentX, contentY, childFlexDir)
+                // For absolutely positioned children, use border-box position as parent position
+                // For other children, use content-box position
+                const childParentX = child.layoutProps.position === "absolute" ? x + borderOffset : contentX
+                const childParentY = child.layoutProps.position === "absolute" ? y + borderOffset : contentY
+
+                this.computeNodeLayout(child, contentWidth, contentHeight, childParentX, childParentY, childFlexDir)
             }
 
             const preFlex = node.children.map(c => ({
@@ -471,8 +476,12 @@ export class LayoutEngine {
             let currentY = contentY
             for (const child of node.children) {
                 const isAbsolute = child.layoutProps.position === "absolute"
-                const childParentY = isAbsolute ? contentY : currentY
-                this.computeNodeLayout(child, contentWidth, contentHeight, contentX, childParentY, undefined)
+                // For absolutely positioned children, use border-box position as parent position
+                // For other children, use content-box position for block layout
+                const childParentX = isAbsolute ? x + borderOffset : contentX
+                const childParentY = isAbsolute ? y + borderOffset : currentY
+
+                this.computeNodeLayout(child, contentWidth, contentHeight, childParentX, childParentY, undefined)
                 if (child.layout && !isAbsolute) {
                     currentY += child.layout.height + child.layout.margin.bottom
                 }
@@ -824,39 +833,36 @@ export class LayoutEngine {
                         ? "column"
                         : "row"
                 for (const child of node.children) {
+                    // For absolutely positioned children, use border-box position as parent position
+                    // For other children, use content-box position
+                    const childParentX = child.layoutProps.position === "absolute" ? x + borderOffset : contentX
+                    const childParentY = child.layoutProps.position === "absolute" ? y + borderOffset : contentY
+
+
                     this.computeNodeLayout(
                         child,
                         contentWidth,
                         contentHeight,
-                        contentX,
-                        contentY,
+                        childParentX,
+                        childParentY,
                         childFlexDir
                     )
                 }
 
-                // Capture pre-flex absolute positions AND sizes so we can detect
-                // which children had their dimensions changed by flex (e.g. stretch).
-                // computeFlexLayout overwrites child x/y with content-area-relative offsets,
-                // so grandchildren (already laid out with the old absolute positions) need
-                // to be shifted by the same delta.
-                // Store in object with numeric indices for O(1) access instead of allocating array of objects
+                // OPT-19: Combine pre-flex capture and flexChildren filtering into single pass
+                // This eliminates one full loop over node.children
                 const preFlex: Record<number, { x: number; y: number; width: number; height: number }> = {}
+                const flexChildren: LayoutNode[] = []
                 for (let i = 0; i < node.children.length; i++) {
                     const c = node.children[i]!
+                    // Capture pre-flex positions for all children (for relayout detection)
                     preFlex[i] = {
                         x: c.layout?.x ?? 0,
                         y: c.layout?.y ?? 0,
                         width: c.layout?.width ?? 0,
                         height: c.layout?.height ?? 0,
                     }
-                }
-
-                // Apply flexbox positioning only to visible, in-flow children.
-                // Absolutely positioned children are taken out of the normal flow
-                // (CSS spec) and scrollable containers must NOT shrink children.
-                // Build flexChildren array inline instead of using filter() to avoid allocation
-                const flexChildren: LayoutNode[] = []
-                for (const c of node.children) {
+                    // Build flexChildren list (visible, in-flow children only)
                     if (c.layoutProps.display !== "none" && c.layoutProps.position !== "absolute" && !c.props._isComment) {
                         flexChildren.push(c)
                     }
@@ -939,13 +945,15 @@ export class LayoutEngine {
                 let currentY = contentY
                 for (const child of node.children) {
                     const isAbsolute = child.layoutProps.position === "absolute"
-                    // Absolute children are positioned from the container's content origin
-                    const childParentY = isAbsolute ? contentY : currentY
+                    // For absolutely positioned children, use border-box position as parent position
+                    // For other children, use content-box position for block layout
+                    const childParentX = isAbsolute ? x + borderOffset : contentX
+                    const childParentY = isAbsolute ? y + borderOffset : currentY
                     this.computeNodeLayout(
                         child,
                         contentWidth,
                         contentHeight,
-                        contentX,
+                        childParentX,
                         childParentY,
                         undefined
                     )

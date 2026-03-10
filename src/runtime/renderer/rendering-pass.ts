@@ -191,14 +191,18 @@ export class RenderingPass {
 
       // Render nested stacking contexts that are at this z-index level
       // Each nested context fully renders itself (all its internal z-index levels)
-      for (const nestedContext of context.nestedContexts) {
-        const contextZIdx =
-          typeof nestedContext.root.layoutProps.zIndex === "number"
-            ? nestedContext.root.layoutProps.zIndex
-            : 0
+      // BUT: skip rendering nested contexts at the text pass layer (pass="text")
+      // They should only render at their own z-index layers
+      if (layer.pass === "background") {
+        for (const nestedContext of context.nestedContexts) {
+          const contextZIdx =
+            typeof nestedContext.root.layoutProps.zIndex === "number"
+              ? nestedContext.root.layoutProps.zIndex
+              : 0
 
-        if (contextZIdx === layerZIdx) {
-          this.renderByZIndexLevels(nestedContext, parentScrollY, contextClipBox)
+          if (contextZIdx === layerZIdx) {
+            this.renderByZIndexLevels(nestedContext, parentScrollY, contextClipBox)
+          }
         }
       }
     }
@@ -260,6 +264,12 @@ export class RenderingPass {
    * Compute the clipBox for a node based on its ancestors' viewports
    */
   private computeClipBoxFromAncestors(node: LayoutNode, contextClipBox?: ClipBox): ClipBox | undefined {
+    // For absolutely positioned elements, don't apply clipping from ancestors
+    // (they have their own stacking context)
+    if (node.layoutProps.position === "absolute") {
+      return contextClipBox
+    }
+
     let clipBox = contextClipBox
 
     // Walk up the parent chain and apply each parent's viewport as a clip boundary
@@ -636,7 +646,6 @@ export class RenderingPass {
 
   /**
    * Render a scrollbar overlay on the rightmost column
-   * OPT-16: Batched writes (24 writes → 3 writes max for typical 24-row viewport)
    */
   private renderScrollbar(node: LayoutNode, parentScrollY: number): void {
     const layout = node.layout!
@@ -674,15 +683,19 @@ export class RenderingPass {
       dim: false,
     }
 
-    // OPT-16: Batch into 3 sections instead of per-row writes
-    // Track before thumb, thumb section, track after thumb
-    if (thumbPos > 0) {
-      this.buffer.write(x, adjustedY, "│".repeat(thumbPos), trackStyle)
+    // Render scrollbar vertically (one row at a time)
+    // Track before thumb
+    for (let i = 0; i < thumbPos; i++) {
+      this.buffer.write(x, adjustedY + i, "│", trackStyle)
     }
-    this.buffer.write(x, adjustedY + thumbPos, "█".repeat(thumbSize), thumbStyle)
+    // Thumb section
+    for (let i = 0; i < thumbSize; i++) {
+      this.buffer.write(x, adjustedY + thumbPos + i, "█", thumbStyle)
+    }
+    // Track after thumb
     const trackAfter = viewportHeight - thumbPos - thumbSize
-    if (trackAfter > 0) {
-      this.buffer.write(x, adjustedY + thumbPos + thumbSize, "│".repeat(trackAfter), trackStyle)
+    for (let i = 0; i < trackAfter; i++) {
+      this.buffer.write(x, adjustedY + thumbPos + thumbSize + i, "│", trackStyle)
     }
   }
 

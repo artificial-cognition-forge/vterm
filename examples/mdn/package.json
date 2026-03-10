@@ -1,0 +1,14 @@
+{
+  "name": "mdn",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vterm dev",
+    "prepare": "vterm prepare"
+  },
+  "devDependencies": {
+    "@arcforge/vterm": "latest",
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}

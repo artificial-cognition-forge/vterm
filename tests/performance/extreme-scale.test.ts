@@ -13,13 +13,10 @@
 
 import { test, describe } from 'bun:test'
 import { h, type VNode } from 'vue'
-import { timed } from './helpers'
+import { timed, buildScenario } from './helpers'
 import { transformCSSToLayout } from '../../src/core/css/transformer'
 import { createLayoutEngine } from '../../src/core/layout'
 import { buildStackingContextTree } from '../../src/core/layout/stacking-context'
-import { BufferRenderer } from '../../src/runtime/renderer/buffer-renderer'
-import { ScreenBuffer } from '../../src/runtime/terminal/buffer'
-import { InteractionManager } from '../../src/runtime/renderer/interaction'
 
 /**
  * Format phase results with detailed timing
@@ -52,7 +49,235 @@ function formatPhaseResults(title: string, phases: Record<string, number>): stri
 // EXTREME CASE 1: Massive Flat List (500 nodes)
 // ============================================================================
 
+/**
+ * Helper: Build a scrollable container with many rich items (like ChatMessage list)
+ * Each item has multiple sub-elements: type label + text + metadata
+ */
+function buildRichItemList(itemCount: number, itemsPerGroup: number = 5) {
+  const items = Array.from({ length: itemCount }).map((_, i) => {
+    // Each item = 5 nodes: wrapper + type + text + metadata + divider
+    const content = h('div', { class: 'message-content' }, [
+      h('div', { class: 'message-type' }, i % 4 === 0 ? 'user' : 'agent'),
+      h('div', { class: 'message-text' }, `Message ${i}: This is a sample message that could be quite long.`),
+      h('div', { class: 'message-meta' }, `${i} min ago`),
+      h('div', { class: 'message-divider' }, ''),
+    ])
+    return content
+  })
+  return h('div', { class: 'message-list' }, items)
+}
+
 describe('Extreme Scale Tests', () => {
+  // ============================================================================
+  // CHAT-LIKE SCROLLABLE CONTAINER (matching Axon CLI use case)
+  // ============================================================================
+
+  test('scrollable message list (100 items, 220×50 terminal) - FULL PIPELINE', async () => {
+    const vnode = buildRichItemList(100)
+    const css = `
+      .message-list {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+      }
+      .message-content {
+        padding: 1;
+        border-bottom: 1px solid grey;
+      }
+      .message-type {
+        color: cyan;
+      }
+      .message-text {
+        color: white;
+        padding: 1 0;
+      }
+      .message-meta {
+        color: grey;
+        font-size: 0.8em;
+      }
+      .message-divider {
+        height: 1;
+      }
+    `
+
+    const parsed = await transformCSSToLayout(css)
+    const styles = new Map(Object.entries(parsed))
+    const engine = createLayoutEngine(220, 50)
+
+    const phases: Record<string, number> = {}
+
+    // Tree build (100 items × 5 nodes each = 500 nodes)
+    const treeResult = timed(() => {
+      engine.buildLayoutTree(vnode, styles)
+    }, 10)
+    phases['Tree Build (500 nodes)'] = treeResult.mean
+
+    const tree = engine.buildLayoutTree(vnode, styles)
+
+    // Layout compute
+    const layoutResult = timed(() => {
+      engine.computeLayout(tree)
+    }, 10)
+    phases['Layout Compute'] = layoutResult.mean
+
+    engine.computeLayout(tree)
+
+    // Stacking context
+    const stackingResult = timed(() => {
+      buildStackingContextTree(tree)
+    }, 10)
+    phases['Stacking Context'] = stackingResult.mean
+
+    // Buffer render (FULL PIPELINE - this is critical)
+    const scenario = await buildScenario(css, vnode, 220, 50)
+    const renderResult = timed(() => {
+      scenario.renderer.render(scenario.tree, scenario.buffer)
+    }, 10)
+    phases['Buffer Render'] = renderResult.mean
+
+    console.log(formatPhaseResults('CHAT-LIKE: 100 Messages (500 nodes, 220×50)', phases))
+  })
+
+  test('scrollable message list (250 items, 220×50 terminal) - FULL PIPELINE', async () => {
+    const vnode = buildRichItemList(250)
+    const css = `
+      .message-list {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+      }
+      .message-content {
+        padding: 1;
+        border-bottom: 1px solid grey;
+      }
+      .message-type {
+        color: cyan;
+      }
+      .message-text {
+        color: white;
+        padding: 1 0;
+      }
+      .message-meta {
+        color: grey;
+      }
+      .message-divider {
+        height: 1;
+      }
+    `
+
+    const parsed = await transformCSSToLayout(css)
+    const styles = new Map(Object.entries(parsed))
+    const engine = createLayoutEngine(220, 50)
+
+    const phases: Record<string, number> = {}
+
+    // Tree build (250 items × 5 nodes each = 1250 nodes)
+    const treeResult = timed(() => {
+      engine.buildLayoutTree(vnode, styles)
+    }, 10)
+    phases['Tree Build (1250 nodes)'] = treeResult.mean
+
+    const tree = engine.buildLayoutTree(vnode, styles)
+
+    // Layout compute
+    const layoutResult = timed(() => {
+      engine.computeLayout(tree)
+    }, 10)
+    phases['Layout Compute'] = layoutResult.mean
+
+    engine.computeLayout(tree)
+
+    // Stacking context
+    const stackingResult = timed(() => {
+      buildStackingContextTree(tree)
+    }, 10)
+    phases['Stacking Context'] = stackingResult.mean
+
+    // Buffer render
+    const scenario = await buildScenario(css, vnode, 220, 50)
+    const renderResult = timed(() => {
+      scenario.renderer.render(scenario.tree, scenario.buffer)
+    }, 10)
+    phases['Buffer Render'] = renderResult.mean
+
+    console.log(formatPhaseResults('CHAT-LIKE: 250 Messages (1250 nodes, 220×50)', phases))
+  })
+
+  test('scrollable message list (500 items, 220×50 terminal) - FULL PIPELINE', async () => {
+    const vnode = buildRichItemList(500)
+    const css = `
+      .message-list {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+      }
+      .message-content {
+        padding: 1;
+        border-bottom: 1px solid grey;
+      }
+      .message-type {
+        color: cyan;
+      }
+      .message-text {
+        color: white;
+        padding: 1 0;
+      }
+      .message-meta {
+        color: grey;
+      }
+      .message-divider {
+        height: 1;
+      }
+    `
+
+    const parsed = await transformCSSToLayout(css)
+    const styles = new Map(Object.entries(parsed))
+    const engine = createLayoutEngine(220, 50)
+
+    const phases: Record<string, number> = {}
+
+    // Tree build (500 items × 5 nodes each = 2500 nodes)
+    const treeResult = timed(() => {
+      engine.buildLayoutTree(vnode, styles)
+    }, 10)
+    phases['Tree Build (2500 nodes)'] = treeResult.mean
+
+    const tree = engine.buildLayoutTree(vnode, styles)
+
+    // Layout compute
+    const layoutResult = timed(() => {
+      engine.computeLayout(tree)
+    }, 10)
+    phases['Layout Compute'] = layoutResult.mean
+
+    engine.computeLayout(tree)
+
+    // Stacking context
+    const stackingResult = timed(() => {
+      buildStackingContextTree(tree)
+    }, 10)
+    phases['Stacking Context'] = stackingResult.mean
+
+    // Buffer render
+    const scenario = await buildScenario(css, vnode, 220, 50)
+    const renderResult = timed(() => {
+      scenario.renderer.render(scenario.tree, scenario.buffer)
+    }, 10)
+    phases['Buffer Render'] = renderResult.mean
+
+    console.log(formatPhaseResults('CHAT-LIKE: 500 Messages (2500 nodes, 220×50)', phases))
+  })
+
+  // ============================================================================
+  // ORIGINAL TEST SUITE
+  // ============================================================================
+
   test('massive flat list (500 nodes, 80×24 terminal)', async () => {
     // Build 500 flat items in a container
     const nodes = Array.from({ length: 500 }).map((_, i) =>
