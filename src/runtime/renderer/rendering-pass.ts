@@ -68,6 +68,7 @@ export class RenderingPass {
   private selectionManager?: SelectionManager
   private isTextPass: boolean = false
   private borderStringCache = new Map<string, string>()
+  private elementBehaviorCache = new Map<string, ReturnType<typeof getElement>>()
 
   constructor(
     buffer: ScreenBuffer,
@@ -90,6 +91,18 @@ export class RenderingPass {
     const s = char.repeat(n)
     this.borderStringCache.set(key, s)
     return s
+  }
+
+  /**
+   * Get element behavior with caching (OPT-18)
+   */
+  private getCachedElementBehavior(nodeType: string) {
+    let behavior = this.elementBehaviorCache.get(nodeType)
+    if (!behavior) {
+      behavior = getElement(nodeType)
+      this.elementBehaviorCache.set(nodeType, behavior)
+    }
+    return behavior
   }
 
   /**
@@ -501,7 +514,7 @@ export class RenderingPass {
     parentScrollY: number,
     clipBox?: ClipBox
   ): void {
-    const behavior = getElement(node.type)
+    const behavior = this.getCachedElementBehavior(node.type)
     if (behavior?.render) {
       if (!node.layout) return
       const layout = node.layout!
@@ -623,7 +636,7 @@ export class RenderingPass {
 
   /**
    * Render a scrollbar overlay on the rightmost column
-   * Drawn on top of children so it sits above any content
+   * OPT-16: Batched writes (24 writes → 3 writes max for typical 24-row viewport)
    */
   private renderScrollbar(node: LayoutNode, parentScrollY: number): void {
     const layout = node.layout!
@@ -661,11 +674,15 @@ export class RenderingPass {
       dim: false,
     }
 
-    for (let i = 0; i < viewportHeight; i++) {
-      const y = adjustedY + i
-      if (y < 0 || y >= this.buffer.height) continue
-      const isThumb = i >= thumbPos && i < thumbPos + thumbSize
-      this.buffer.write(x, y, isThumb ? "█" : "│", isThumb ? thumbStyle : trackStyle)
+    // OPT-16: Batch into 3 sections instead of per-row writes
+    // Track before thumb, thumb section, track after thumb
+    if (thumbPos > 0) {
+      this.buffer.write(x, adjustedY, "│".repeat(thumbPos), trackStyle)
+    }
+    this.buffer.write(x, adjustedY + thumbPos, "█".repeat(thumbSize), thumbStyle)
+    const trackAfter = viewportHeight - thumbPos - thumbSize
+    if (trackAfter > 0) {
+      this.buffer.write(x, adjustedY + thumbPos + thumbSize, "│".repeat(trackAfter), trackStyle)
     }
   }
 
