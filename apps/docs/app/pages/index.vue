@@ -4,10 +4,12 @@
     <p>Select an HTML element from the sidebar to learn more.</p>
 
     <button @click="() => { throw new Error('hello') }">throw error</button>
+    <a href="/unknown-page">404</a>
   </div>
 </template>
 
 <script setup lang="ts">
+const router = useRouter()
 definePageMeta({
   layout: "default"
 }) 

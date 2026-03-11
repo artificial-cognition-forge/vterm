@@ -389,9 +389,30 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     // Provide layouts registry for RouterView
     app.provide('vterm-layouts', layoutsMap)
 
+    // Load platform 404 component for use as not-found fallback
+    let notFoundComponent: any = undefined
+    try {
+        const { resolve, dirname } = await import("path")
+        const { fileURLToPath } = await import("url")
+        const { existsSync } = await import("fs")
+        const platformPagesDir = resolve(dirname(fileURLToPath(import.meta.url)), "platform/pages")
+        const notFoundPath = resolve(platformPagesDir, "404.vue")
+        if (existsSync(notFoundPath)) {
+            notFoundComponent = await loadSFC(notFoundPath)
+        }
+    } catch {
+        // fallback to inline if SFC fails to load
+    }
+
     // Install router if routes exist
     if (routes.length > 0) {
-        installRouter(app, routes)
+        const router = installRouter(app, routes, { notFoundComponent })
+        // Force a full terminal redraw on every navigation so stale content
+        // from the previous page is completely erased before the new page renders.
+        const { watch } = await import("vue")
+        watch((router as any).currentPath, () => {
+            driver.forceFullRedraw()
+        })
     }
 
     // Suppress Vue warnings

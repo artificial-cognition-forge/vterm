@@ -163,6 +163,15 @@ export class TerminalDriver extends EventEmitter {
     }
 
     /**
+     * Forces a full redraw on the next render() call by discarding the
+     * previous buffer snapshot. Use this after a route change to ensure
+     * stale content from the old page is fully erased.
+     */
+    forceFullRedraw(): void {
+        this.prevBuffer = null
+    }
+
+    /**
      * Renders the current buffer to the terminal
      */
     render(): void {

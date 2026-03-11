@@ -12,6 +12,7 @@ import type { LayoutNode } from "../../core/layout/types"
 import { isScrollableNode } from "../../core/layout/utils"
 import type { MouseEvent } from "../terminal/input"
 import { getGlobalRouter } from "../../core/router/router"
+import { spawnSync } from "child_process"
 
 /**
  * Interactive state for a node
@@ -267,8 +268,14 @@ export class InteractionManager {
                 !pressHandler &&
                 !clickHandler
             ) {
-                const router = getGlobalRouter()
-                if (router) router.push(targetNode.props.href)
+                const href = targetNode.props.href
+                if (/^https?:\/\//.test(href)) {
+                    const cmd = process.platform === "darwin" ? "open" : "xdg-open"
+                    spawnSync(cmd, [href], { detached: true, stdio: "ignore" })
+                } else {
+                    const router = getGlobalRouter()
+                    if (router) router.push(href)
+                }
             }
         }
     }

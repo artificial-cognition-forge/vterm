@@ -66,24 +66,18 @@ export const RouterView = defineComponent({
                 return match
             })
 
-            if (!matchedRoute) {
-                if (NotFoundComponent) {
-                    return h(NotFoundComponent)
+            if (!matchedRoute || !matchedRoute.component) {
+                if (!matchedRoute) {
+                    console.warn("[RouterView] No route matched:", currentPath)
+                } else {
+                    console.warn("[RouterView] No component for route:", matchedRoute.path)
                 }
-                return h("div", { width: "100%", height: "100%" }, [
-                    h("p", `404: Route not found - ${currentPath}`),
-                    h("a", { href: "/" }, "Go to home"),
-                ])
-            }
-
-            if (!matchedRoute.component) {
-                console.warn("[RouterView] No component for route:", matchedRoute.path)
-                if (NotFoundComponent) {
-                    return h(NotFoundComponent)
-                }
-                return h("div", { width: "100%", height: "100%" }, [
-                    h("p", `404: No component for route - ${matchedRoute.path}`),
-                ])
+                return NotFoundComponent
+                    ? h(NotFoundComponent)
+                    : h("div", { width: "100%", height: "100%" }, [
+                        h("p", `404: Route not found - ${currentPath}`),
+                        h("a", { href: "/" }, "Go to home"),
+                    ])
             }
 
             try {
