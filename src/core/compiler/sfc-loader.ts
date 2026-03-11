@@ -5,6 +5,7 @@ import { transform } from "sucrase"
 import * as router from "../router/index"
 import * as composables from "../platform/composables/exports"
 import * as store from "../platform/store/store"
+import { vtermError, clearVTermError } from "../platform/error-state"
 import { transformWithAutoImports, getRuntimeComposables } from "../../build/auto-imports"
 import { extractSFCStyles } from "../css"
 
@@ -92,6 +93,9 @@ const STATIC_MODULE_SCOPE = Object.freeze({
     useScreen: composables.useScreen,
     useFocus: composables.useFocus,
     useRender: composables.useRender,
+    // Error state — exposed so platform error.vue can read/clear the current error
+    vtermError,
+    clearVTermError,
     // Page metadata (no-op at runtime — extracted at build time into route meta)
     definePageMeta: (_meta: any) => {},
     // Storage utilities

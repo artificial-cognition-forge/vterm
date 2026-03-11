@@ -2,6 +2,8 @@
   <div class="content">
     <h1>Welcome to MDN</h1>
     <p>Select an HTML element from the sidebar to learn more.</p>
+
+    <button @click="() => { throw new Error('hello') }">throw error</button>
   </div>
 </template>
 
@@ -12,10 +14,15 @@ definePageMeta({
 </script>
 
 <style scoped>
+.sidebar {
+  background: red;
+}
+
 .content {
   width: 100%;
   height: 100%;
   padding: 1 2;
+  overflow-y: scroll;
 }
 
 h1 {

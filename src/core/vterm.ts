@@ -22,6 +22,7 @@ import { StoreSymbol, StoreOptionsSymbol, type Store } from "./platform/store/st
 import { installRouter, loadDefaultRoutes, getGlobalRouter } from "./router"
 import { getElement } from "../runtime/elements/index"
 import { setHighlightCallback, configureHighlighter } from "../runtime/elements/highlighter"
+import { setVTermError, vtermError } from "./platform/error-state"
 import type { VTermOptions, VTermApp } from "../types/types"
 import type { ParsedStyles } from "./css/types"
 import type { LayoutNode } from "./layout/types"
@@ -77,7 +78,13 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
             }
         }
 
-        interactionManager.handleMouseEvent(mouseEvent, currentLayoutRoot)
+        try {
+            interactionManager.handleMouseEvent(mouseEvent, currentLayoutRoot)
+        } catch (err) {
+            // User event handler threw — route to error page instead of crashing
+            if (vtermError.value === null) setVTermError(err, 'event')
+        }
+
         selectionManager.handleMouseEvent(mouseEvent)
 
         // Auto-copy to clipboard when a drag selection is finalized
@@ -103,9 +110,13 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         const behavior = getElement(focused.type)
         if (!behavior?.handleKey) return
 
-        behavior.handleKey(focused, key, () => {
-            if (currentLayoutRoot) performLayout(currentLayoutRoot)
-        })
+        try {
+            behavior.handleKey(focused, key, () => {
+                if (currentLayoutRoot) performLayout(currentLayoutRoot)
+            })
+        } catch (err) {
+            if (vtermError.value === null) setVTermError(err, 'event')
+        }
     })
 
     // Initialize buffer renderer
@@ -230,6 +241,10 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         // No layouts directory - skip
     }
 
+    // Load the built-in error page — always available regardless of routing setup
+    const { resolve: _resolvePath } = await import("path")
+    const errorPageComponent = await loadSFC(_resolvePath(import.meta.dir, "./platform/pages/error.vue"))
+
     // Determine component to render
     let component: any
     if (routes.length > 0) {
@@ -254,6 +269,23 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         component = await loadSFC(entry)
     }
 
+    // Wrap root component in an ErrorBoundary so any Vue component error is caught
+    // and the error page is shown instead of crashing the process.
+    const { defineComponent: _defComp, h: _h, onErrorCaptured: _onErrCapt } = await import("vue")
+    const _originalComponent = component
+    component = _defComp({
+        name: 'VTermRoot',
+        setup() {
+            _onErrCapt((err: unknown) => {
+                setVTermError(err, 'component')
+                return false // prevent further propagation
+            })
+            return () => vtermError.value !== null
+                ? _h(errorPageComponent)
+                : _h(_originalComponent)
+        },
+    })
+
     // Get all styles from the global styles registry (populated by loadSFC)
     const globalStylesMap = getAllStyles()
     const allStyles: ParsedStyles = Object.fromEntries(globalStylesMap.entries())
@@ -263,6 +295,9 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
 
     // Track the current layout root for reflow on resize
     let currentLayoutRoot: LayoutNode | null = null
+
+    // Guard: prevent an error-page render failure from looping
+    let _errorRecoveryActive = false
 
     // Function to perform layout computation and rendering
     const performLayout = (layoutRoot: LayoutNode) => {
@@ -293,9 +328,14 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
 
             // Schedule terminal render
             scheduleRender()
+            _errorRecoveryActive = false // reset after a clean render
         } catch (error) {
-            console.error("Render error:", error)
-            throw error
+            if (!_errorRecoveryActive) {
+                _errorRecoveryActive = true
+                // Defer so we don't mutate reactive state mid-render-cycle
+                queueMicrotask(() => setVTermError(error, 'layout'))
+            }
+            // Never re-throw — keeps the process alive and quitKeys working
         }
     }
 
@@ -361,6 +401,14 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     // All tags are custom elements in the terminal renderer (not browser DOM)
     app.config.compilerOptions.isCustomElement = () => true
 
+    // Catch any Vue error that escapes the ErrorBoundary (e.g. errors in the
+    // error page itself) so the process never crashes.
+    app.config.errorHandler = (err: unknown) => {
+        if (vtermError.value === null) {
+            setVTermError(err, 'vue')
+        }
+    }
+
     // Mount the app — root container fills the terminal so height: 100% resolves correctly.
     // scrollableY: true gives page-level overflow: auto — content taller than the screen
     // can be scrolled without the user having to mark anything explicitly.
@@ -371,11 +419,26 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
 
     immediateRender()
 
+    // Global safety net: catch uncaught exceptions / unhandled rejections so the
+    // terminal never hangs and quit keys keep working.
+    const _uncaughtHandler = (err: unknown) => {
+        if (vtermError.value === null) setVTermError(err, 'uncaughtException')
+    }
+    const _rejectionHandler = (reason: unknown) => {
+        if (vtermError.value === null) setVTermError(reason, 'unhandledRejection')
+    }
+    process.on('uncaughtException', _uncaughtHandler)
+    process.on('unhandledRejection', _rejectionHandler)
+
     // Create app control object
     const vtermApp: VTermApp = {
         screen: driver as any, // Expose driver as screen for backwards compatibility
         app,
         async unmount() {
+            // Remove global error handlers
+            process.off('uncaughtException', _uncaughtHandler)
+            process.off('unhandledRejection', _rejectionHandler)
+
             // Remove resize listener
             driver.off("resize", resizeHandler)
 
@@ -399,8 +462,14 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     // Register quit key handlers — in raw mode Ctrl+C is a keypress, not SIGINT,
     // so we must register it explicitly here or it silently does nothing.
     driver.key(quitKeys, async () => {
-        await vtermApp.unmount()
-        process.exit(0)
+        try {
+            await vtermApp.unmount()
+        } catch {
+            // Ensure terminal is always restored even if unmount fails
+            try { driver.cleanup() } catch { }
+        } finally {
+            process.exit(0)
+        }
     })
 
     // Call onMounted callback
