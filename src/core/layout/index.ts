@@ -55,6 +55,8 @@ export {
   getPadding,
   getMargin,
   getBorder,
+  getBorderSide,
+  getBorderSideFg,
   getHorizontalSpacing,
   getVerticalSpacing,
   getContentWidth,

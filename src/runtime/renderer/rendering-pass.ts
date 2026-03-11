@@ -10,6 +10,7 @@
  */
 
 import type { LayoutNode, VisualStyle } from "../../core/layout/types"
+import { getBorderSide, getBorderSideFg } from "../../core/layout/box-model"
 import type { StackingContext, StackingContextLayer } from "../../core/layout/stacking-context"
 import { ScreenBuffer, createStyledCell, type Cell } from "../terminal/buffer"
 import { getElement } from "../elements/registry"
@@ -456,58 +457,77 @@ export class RenderingPass {
     clipBox?: ClipBox
   ): void {
     const layout = node.layout!
-    if (!layout.border || layout.border.width === 0) return
+    if (!layout.border) return
 
     const borderStyle = layout.border
+    const hasTop    = getBorderSide(borderStyle, 'top')    > 0
+    const hasRight  = getBorderSide(borderStyle, 'right')  > 0
+    const hasBottom = getBorderSide(borderStyle, 'bottom') > 0
+    const hasLeft   = getBorderSide(borderStyle, 'left')   > 0
+    if (!hasTop && !hasRight && !hasBottom && !hasLeft) return
+
     const borderType = borderStyle.type || "line"
     const chars = borderType === "bg" ? BOX_CHARS.line : BOX_CHARS[borderType] || BOX_CHARS.line
-
-    const borderColor = style.border?.fg || borderStyle.fg || style.fg
     const borderBg = style.border?.bg || style.bg
-
-    const cellStyle = {
-      color: borderColor || null,
-      background: borderBg || null,
-      bold: style.bold || false,
-      underline: false,
-      italic: false,
-      inverse: false,
-      dim: false,
-    }
-
     const adjustedY = layout.y - parentScrollY
     const x = layout.x
     const y = adjustedY
     const width = layout.width
     const height = layout.height
 
-    // Top-left corner
-    this.buffer.write(x, y, chars.topLeft, cellStyle)
+    const cellStyleForSide = (side: 'top' | 'right' | 'bottom' | 'left') => ({
+      color: style.border?.fg || getBorderSideFg(borderStyle, side) || style.fg || null,
+      background: borderBg || null,
+      bold: style.bold || false,
+      underline: false,
+      italic: false,
+      inverse: false,
+      dim: false,
+    })
 
-    // Top border
-    if (width > 2) {
-      this.buffer.write(x + 1, y, this.getRepeatedString(chars.horizontal, width - 2), cellStyle)
+    // Top side
+    if (hasTop) {
+      const cs = cellStyleForSide('top')
+      const leftChar  = hasLeft  ? chars.topLeft     : chars.horizontal
+      const rightChar = hasRight ? chars.topRight    : chars.horizontal
+      this.buffer.write(x, y, leftChar, cs)
+      if (width > 2) {
+        this.buffer.write(x + 1, y, this.getRepeatedString(chars.horizontal, width - 2), cs)
+      }
+      if (width > 1) this.buffer.write(x + width - 1, y, rightChar, cs)
     }
 
-    // Top-right corner
-    this.buffer.write(x + width - 1, y, chars.topRight, cellStyle)
-
-    // Left and right borders
-    for (let i = 1; i < height - 1; i++) {
-      this.buffer.write(x, y + i, chars.vertical, cellStyle)
-      this.buffer.write(x + width - 1, y + i, chars.vertical, cellStyle)
+    // Bottom side
+    if (hasBottom) {
+      const cs = cellStyleForSide('bottom')
+      const leftChar  = hasLeft  ? chars.bottomLeft  : chars.horizontal
+      const rightChar = hasRight ? chars.bottomRight : chars.horizontal
+      this.buffer.write(x, y + height - 1, leftChar, cs)
+      if (width > 2) {
+        this.buffer.write(x + 1, y + height - 1, this.getRepeatedString(chars.horizontal, width - 2), cs)
+      }
+      if (width > 1) this.buffer.write(x + width - 1, y + height - 1, rightChar, cs)
     }
 
-    // Bottom-left corner
-    this.buffer.write(x, y + height - 1, chars.bottomLeft, cellStyle)
-
-    // Bottom border
-    if (width > 2) {
-      this.buffer.write(x + 1, y + height - 1, this.getRepeatedString(chars.horizontal, width - 2), cellStyle)
+    // Left side (interior rows only)
+    if (hasLeft) {
+      const cs = cellStyleForSide('left')
+      const startRow = hasTop    ? 1 : 0
+      const endRow   = hasBottom ? height - 1 : height
+      for (let i = startRow; i < endRow; i++) {
+        this.buffer.write(x, y + i, chars.vertical, cs)
+      }
     }
 
-    // Bottom-right corner
-    this.buffer.write(x + width - 1, y + height - 1, chars.bottomRight, cellStyle)
+    // Right side (interior rows only)
+    if (hasRight) {
+      const cs = cellStyleForSide('right')
+      const startRow = hasTop    ? 1 : 0
+      const endRow   = hasBottom ? height - 1 : height
+      for (let i = startRow; i < endRow; i++) {
+        this.buffer.write(x + width - 1, y + i, chars.vertical, cs)
+      }
+    }
   }
 
   /**
@@ -578,14 +598,17 @@ export class RenderingPass {
       // Render box content with padding offset
       const layout = node.layout!
       const content = node.content || ""
-      const border = layout.border.width
+      const borderLeft   = getBorderSide(layout.border, 'left')
+      const borderTop    = getBorderSide(layout.border, 'top')
+      const borderRight  = getBorderSide(layout.border, 'right')
+      const borderBottom = getBorderSide(layout.border, 'bottom')
       const padding = layout.padding
       const cellStyle = this.visualStyleToCellStyle(style)
 
-      const contentX = layout.x + border + padding.left
-      const contentY = (layout.y - parentScrollY) + border + padding.top
-      let contentWidth = layout.width - 2 * border - padding.left - padding.right
-      const contentHeight = layout.height - 2 * border - padding.top - padding.bottom
+      const contentX = layout.x + borderLeft + padding.left
+      const contentY = (layout.y - parentScrollY) + borderTop + padding.top
+      let contentWidth = layout.width - borderLeft - borderRight - padding.left - padding.right
+      const contentHeight = layout.height - borderTop - borderBottom - padding.top - padding.bottom
 
       // If there's a clipBox, constrain the content width to it
       let maxX = contentX + contentWidth
@@ -692,14 +715,16 @@ export class RenderingPass {
   private renderScrollbar(node: LayoutNode, parentScrollY: number): void {
     const layout = node.layout!
     const contentHeight = node.contentHeight ?? 0
-    const border = layout.border.width
+    const borderTop   = getBorderSide(layout.border, 'top')
+    const borderRight = getBorderSide(layout.border, 'right')
+    const borderBottom = getBorderSide(layout.border, 'bottom')
     const padding = layout.padding
-    const viewportHeight = layout.height - 2 * border - padding.top - padding.bottom
+    const viewportHeight = layout.height - borderTop - borderBottom - padding.top - padding.bottom
 
     if (contentHeight <= viewportHeight) return
 
-    const adjustedY = layout.y - parentScrollY + border
-    const x = layout.x + layout.width - 1 - border
+    const adjustedY = layout.y - parentScrollY + borderTop
+    const x = layout.x + layout.width - 1 - borderRight
 
     const thumbSize = Math.max(1, Math.floor((viewportHeight / contentHeight) * viewportHeight))
     const scrollRange = contentHeight - viewportHeight

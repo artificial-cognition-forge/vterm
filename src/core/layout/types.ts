@@ -19,8 +19,16 @@ export interface Spacing {
  * Border style properties
  */
 export interface BorderStyle {
-    width: number
+    width: number                                          // full-border shorthand (0 = no full border)
+    top?: number                                           // per-side: undefined = inherit from width
+    right?: number
+    bottom?: number
+    left?: number
     fg?: string
+    topFg?: string
+    rightFg?: string
+    bottomFg?: string
+    leftFg?: string
     type?: "line" | "bg" | "heavy" | "double" | "ascii"
 }
 
@@ -117,11 +125,21 @@ export interface LayoutProperties {
     marginBottom?: number
     marginLeft?: number
 
-    // Border
+    // Border (shorthand)
     border?: BorderStyle
     borderWidth?: number
     borderFg?: string
     borderType?: "line" | "bg" | "heavy" | "double" | "ascii"
+
+    // Per-side borders
+    borderTopWidth?: number
+    borderRightWidth?: number
+    borderBottomWidth?: number
+    borderLeftWidth?: number
+    borderTopColor?: string
+    borderRightColor?: string
+    borderBottomColor?: string
+    borderLeftColor?: string
 
     // Positioning
     position?: "relative" | "absolute"
@@ -259,6 +277,9 @@ export interface LayoutNode {
     // Style cache (for performance optimization)
     _cachedEffectiveStyle?: VisualStyle
     _cachedStyleState?: string  // Tracks hover|focus|active|none state
+
+    // CSS scope ID (set when node belongs to a scoped SFC style block)
+    _scopeId?: string
 
     // Original VNode data (for debugging)
     _vnode?: any

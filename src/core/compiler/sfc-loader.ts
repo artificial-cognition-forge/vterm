@@ -46,6 +46,18 @@ function useFileBasedRoutesSync(): any[] {
     return cachedRoutes
 }
 
+// ─── CSS Scope ID stack ────────────────────────────────────────────────────
+// _pushScopeId / _popScopeId are called by Vue's compiled render functions
+// whenever a component with scoped styles renders its template. We track the
+// current scope ID on a stack so the layout renderer can read it via
+// getCurrentScopeId() and stamp each created LayoutNode with the right ID.
+const _scopeStack: string[] = []
+
+export function getCurrentScopeId(): string | null {
+    return _scopeStack.length > 0 ? _scopeStack[_scopeStack.length - 1]! : null
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 // Render callback registered by the vterm runtime so directives can trigger
 // a terminal re-render after they update internal node state.
 let _requestRender: (() => void) | null = null
@@ -156,8 +168,8 @@ const STATIC_MODULE_SCOPE = Object.freeze({
     _vModelDynamic: { beforeMount() {}, mounted() {}, beforeUpdate() {}, updated() {} },
     _vShow: vue.vShow,
     _renderSlot: vue.renderSlot,
-    _pushScopeId: () => {},
-    _popScopeId: () => {},
+    _pushScopeId: (id: string) => { _scopeStack.push(id) },
+    _popScopeId: () => { _scopeStack.pop() },
     _createStaticVNode: vue.createStaticVNode,
     _setBlockTracking: vue.setBlockTracking,
 })
@@ -312,23 +324,8 @@ export async function loadSFC(filepath: string): Promise<any> {
         throw new Error(`SFC parse errors:\n${errors.join("\n")}`)
     }
 
-    // Process styles if present
-    if (descriptor.styles && descriptor.styles.length > 0) {
-        const styleBlocks = descriptor.styles.map(s => ({
-            content: s.content,
-            scoped: s.scoped,
-            lang: s.lang ?? undefined,
-        }))
-
-        const parsedStyles = await extractSFCStyles(styleBlocks)
-
-        // Register styles in global registry
-        for (const [selector, style] of Object.entries(parsedStyles)) {
-            globalStyles.set(selector, style)
-        }
-    }
-
     // Compile the script with inline template
+    // (Must happen before style processing so we can extract Vue's generated scopeId)
     let script = ""
     const componentImports: Record<string, any> = {}
 
@@ -413,6 +410,29 @@ export async function loadSFC(filepath: string): Promise<any> {
     } else {
         // No script and no template - create a minimal component
         script = "const _sfc_main = {}"
+    }
+
+    // Process styles now that we have the compiled script (and can extract scopeId).
+    // Vue embeds the generated scope ID as `const __scopeId = "data-v-xxxxxxxx"` in
+    // the compiled output when scoped styles are present. We read it from there so
+    // our style key encoding always stays in sync with what _pushScopeId will push.
+    if (descriptor.styles && descriptor.styles.length > 0) {
+        const vueScopeIdMatch = script.match(/const\s+__scopeId\s*=\s*["']([^"']+)["']/)
+        const vueScopeId = vueScopeIdMatch?.[1] ?? null
+
+        const styleBlocks = descriptor.styles.map(s => ({
+            content: s.content,
+            scoped: s.scoped ?? false,
+            scopeId: (s.scoped && vueScopeId) ? vueScopeId : undefined,
+            lang: s.lang ?? undefined,
+        }))
+
+        const parsedStyles = await extractSFCStyles(styleBlocks)
+
+        // Register styles in global registry
+        for (const [selector, style] of Object.entries(parsedStyles)) {
+            globalStyles.set(selector, style)
+        }
     }
 
     // Get the complete module scope including runtime composables

@@ -149,3 +149,122 @@ describe('BUG: border-style: heavy (not handled by border-style property)', () =
     expect(buf.getCell(0, 1)?.char).toBe(CHARS.heavy.v)
   })
 })
+
+// ─── Per-side borders ─────────────────────────────────────────────────────────
+
+describe('border-bottom', () => {
+  test('renders a horizontal line at the bottom row only', async () => {
+    const buf = await renderCSS(
+      `.box { width: 10; height: 3; border-bottom: 1px solid white; }`,
+      h('div', { class: 'box' })
+    )
+    // Bottom row should have horizontal chars
+    expect(buf.getCell(0, 2)?.char).toBe(CHARS.line.h)
+    expect(buf.getCell(5, 2)?.char).toBe(CHARS.line.h)
+    // Top and sides should be empty
+    expect(buf.getCell(0, 0)?.char).toBe(' ')
+    expect(buf.getCell(0, 1)?.char).toBe(' ')
+  })
+
+  test('does not reduce content width (no left/right border)', async () => {
+    // Content should start at x=0 (no left border offset)
+    const buf = await renderCSS(
+      `.box { width: 10; height: 3; border-bottom: 1px solid white; }`,
+      h('div', { class: 'box' }, 'Hi')
+    )
+    expect(buf.getCell(0, 0)?.char).toBe('H')
+  })
+
+  test('content does not overlap the bottom border row', async () => {
+    // 3 rows total: row 0 = content, row 1 = content, row 2 = border
+    const buf = await renderCSS(
+      `.box { width: 10; height: 3; border-bottom: 1px solid white; }`,
+      h('div', { class: 'box' }, 'Hi')
+    )
+    // Bottom row is border, not text
+    expect(buf.getCell(0, 2)?.char).toBe(CHARS.line.h)
+  })
+})
+
+describe('border-top', () => {
+  test('renders a horizontal line at the top row only', async () => {
+    const buf = await renderCSS(
+      `.box { width: 10; height: 3; border-top: 1px solid white; }`,
+      h('div', { class: 'box' })
+    )
+    expect(buf.getCell(0, 0)?.char).toBe(CHARS.line.h)
+    expect(buf.getCell(5, 0)?.char).toBe(CHARS.line.h)
+    // Rows below should be empty
+    expect(buf.getCell(0, 1)?.char).toBe(' ')
+  })
+})
+
+describe('border-left', () => {
+  test('renders a vertical line on the left column only', async () => {
+    const buf = await renderCSS(
+      `.box { width: 5; height: 4; border-left: 1px solid white; }`,
+      h('div', { class: 'box' })
+    )
+    expect(buf.getCell(0, 0)?.char).toBe(CHARS.line.v)
+    expect(buf.getCell(0, 1)?.char).toBe(CHARS.line.v)
+    expect(buf.getCell(0, 2)?.char).toBe(CHARS.line.v)
+    // Right column should be empty
+    expect(buf.getCell(4, 0)?.char).toBe(' ')
+  })
+})
+
+describe('border-right', () => {
+  test('renders a vertical line on the right column only', async () => {
+    const buf = await renderCSS(
+      `.box { width: 5; height: 3; border-right: 1px solid white; }`,
+      h('div', { class: 'box' })
+    )
+    expect(buf.getCell(4, 0)?.char).toBe(CHARS.line.v)
+    expect(buf.getCell(4, 1)?.char).toBe(CHARS.line.v)
+    // Left column should be empty
+    expect(buf.getCell(0, 0)?.char).toBe(' ')
+  })
+})
+
+describe('per-side border combinations', () => {
+  test('border-top + border-bottom draws top and bottom only, no sides', async () => {
+    const buf = await renderCSS(
+      `.box { width: 10; height: 4; border-top: 1px solid white; border-bottom: 1px solid white; }`,
+      h('div', { class: 'box' })
+    )
+    expect(buf.getCell(0, 0)?.char).toBe(CHARS.line.h)
+    expect(buf.getCell(0, 3)?.char).toBe(CHARS.line.h)
+    // Left column: no vertical chars
+    expect(buf.getCell(0, 1)?.char).toBe(' ')
+    expect(buf.getCell(0, 2)?.char).toBe(' ')
+  })
+
+  test('border-top + border-left draws corner at top-left', async () => {
+    const buf = await renderCSS(
+      `.box { width: 8; height: 4; border-top: 1px solid white; border-left: 1px solid white; }`,
+      h('div', { class: 'box' })
+    )
+    // Top-left corner
+    expect(buf.getCell(0, 0)?.char).toBe(CHARS.line.tl)
+    // Top edge (no top-right corner since no right border)
+    expect(buf.getCell(1, 0)?.char).toBe(CHARS.line.h)
+    expect(buf.getCell(7, 0)?.char).toBe(CHARS.line.h)
+    // Left side
+    expect(buf.getCell(0, 1)?.char).toBe(CHARS.line.v)
+  })
+
+  test('border: none on a side disables it when shorthand is set', async () => {
+    const buf = await renderCSS(
+      `.box { width: 10; height: 4; border: 1px solid white; border-top: 0; border-bottom: 0; }`,
+      h('div', { class: 'box' })
+    )
+    // Interior of top and bottom rows should be empty (no horizontal line)
+    expect(buf.getCell(1, 0)?.char).toBe(' ')
+    expect(buf.getCell(1, 3)?.char).toBe(' ')
+    // Left and right sides still render across all 4 rows
+    expect(buf.getCell(0, 0)?.char).toBe(CHARS.line.v)
+    expect(buf.getCell(0, 3)?.char).toBe(CHARS.line.v)
+    expect(buf.getCell(9, 0)?.char).toBe(CHARS.line.v)
+    expect(buf.getCell(9, 3)?.char).toBe(CHARS.line.v)
+  })
+})

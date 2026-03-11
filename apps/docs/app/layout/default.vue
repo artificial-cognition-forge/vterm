@@ -1,9 +1,11 @@
 <template>
-    <Navigation />
-    <div class="layout">
-        <Sidebar />
-        <div class="content">
-            <slot />
+    <div class="container">
+        <Navigation />
+        <div class="layout">
+            <Sidebar />
+            <div class="content">
+                <slot />
+            </div>
         </div>
     </div>
 </template>
@@ -14,11 +16,20 @@ import Sidebar from '../components/sidebar.vue'
 </script>
 
 <style scoped>
+.container {
+    display: flex;
+    flex-direction: column;
+    overflow-y: none;
+    height: 100%;
+    width: 100%;
+}
+
 .layout {
     display: flex;
     gap: 2;
-    height: 100%;
     width: 100%;
+    height: 100%;
+    overflow-y: none;
 }
 
 .content {
@@ -26,5 +37,6 @@ import Sidebar from '../components/sidebar.vue'
     flex-direction: column;
     width: 100%;
     height: 100%;
+    overflow-y: scroll;
 }
 </style>

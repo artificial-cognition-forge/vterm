@@ -1,32 +1,22 @@
 <template>
     <div class="nav-container">
         <div class="left-nav">
-            <a href="/">VTERM</a>
-        </div>
-
-        <div class="right-nav">
-            <button @click="sidebar.state.value.page === 'vue'">VUE</button>
-            <button @click="sidebar.state.value.page === 'html'">HTML</button>
-            <button @click="sidebar.set('css')">CSS</button>
+            <a href="/">VTERM DOCS</a>
         </div>
     </div>
 </template>
 
-<script setup lang="ts">
-const sidebar = useSidebar()
-</script>
+<script setup lang="ts"></script>
 
 <style scoped lang="scss">
 .nav-container {
     display: flex;
     justify-content: space-between;
-    width: 100%;
-    border: 1px solid white;
-    gap: 2;
+    border-bottom: 1px solid cyan;
 }
 
 .left-nav {
-    width: 5;
+    width: 10;
 }
 
 .right-nav {
@@ -38,5 +28,6 @@ const sidebar = useSidebar()
 
 button {
     width: 10;
+    background: red;
 }
 </style>

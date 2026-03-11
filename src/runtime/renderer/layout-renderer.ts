@@ -14,6 +14,8 @@
 import { createRenderer, type VNode } from "vue"
 import type { LayoutNode, LayoutProperties, VisualStyle } from "../../core/layout/types"
 import type { ParsedStyles } from "../../core/css/types"
+import { getCurrentScopeId } from "../../core/compiler/sfc-loader"
+import { decodeScopedKey } from "../../core/css/transformer"
 
 /**
  * UA (user-agent) default styles — applied before user CSS, lowest priority.
@@ -36,9 +38,11 @@ let nodeIdCounter = 0
  * Create a layout node from element type and props
  */
 export function createLayoutNodeElement(type: string, styles: ParsedStyles = {}): LayoutNode {
+    const scopeId = getCurrentScopeId() ?? undefined
+
     // Apply UA defaults first, then user CSS overrides
     const uaDefaults = UA_LAYOUT_PROPS[type]
-    const { layoutProps: cssLayoutProps, visualStyle } = resolveNodeStyles(type, [], styles)
+    const { layoutProps: cssLayoutProps, visualStyle } = resolveNodeStyles(type, [], styles, scopeId)
     const layoutProps: LayoutProperties = uaDefaults
         ? { ...uaDefaults, ...cssLayoutProps }
         : cssLayoutProps
@@ -56,6 +60,7 @@ export function createLayoutNodeElement(type: string, styles: ParsedStyles = {})
         layout: null,
         scrollX: 0,
         scrollY: 0,
+        _scopeId: scopeId,
     }
 
     Object.assign(node.style, visualStyle)
@@ -104,74 +109,80 @@ function createLayoutNodeComment(): LayoutNode {
 }
 
 /**
- * Resolve styles for a node based on type and class names
+ * Apply a single LayoutProperties block onto the working layoutProps / visualStyle.
+ */
+function applyStyleBlock(
+    source: LayoutProperties,
+    layoutProps: LayoutProperties,
+    visualStyle: VisualStyle
+): { layoutProps: LayoutProperties; visualStyle: VisualStyle } {
+    const { visualStyles, hover, focus, active, ...otherProps } = source
+    const merged: LayoutProperties = { ...layoutProps, ...otherProps }
+    const mergedVisual: VisualStyle = visualStyles
+        ? { ...visualStyle, ...visualStyles }
+        : { ...visualStyle }
+
+    if (hover) {
+        const hoverVisual = (hover as any).visualStyles || hover
+        mergedVisual.hover = { ...(mergedVisual.hover || {}), ...hoverVisual }
+    }
+    if (focus) {
+        const focusVisual = (focus as any).visualStyles || focus
+        mergedVisual.focus = { ...(mergedVisual.focus || {}), ...focusVisual }
+    }
+    if (active) {
+        const activeVisual = (active as any).visualStyles || active
+        mergedVisual.active = { ...(mergedVisual.active || {}), ...activeVisual }
+    }
+
+    return { layoutProps: merged, visualStyle: mergedVisual }
+}
+
+/**
+ * Resolve styles for a node based on type, class names, and optional scope ID.
+ *
+ * Resolution order (later entries win):
+ *   1. Global element-type styles  (e.g. `button { }`)
+ *   2. Scoped element-type styles  (e.g. `button { }` from owning component)
+ *   3. Global class styles         (e.g. `.btn { }`)
+ *   4. Scoped class styles         (e.g. `.btn { }` from owning component)
  */
 function resolveNodeStyles(
     nodeType: string,
     classNames: string[],
-    styles: ParsedStyles
+    styles: ParsedStyles,
+    scopeId?: string
 ): { layoutProps: LayoutProperties; visualStyle: VisualStyle } {
     let layoutProps: LayoutProperties = {}
     let visualStyle: VisualStyle = {}
 
-    // First apply type-based styles
+    // 1. Global element-type styles
     const typeStyle = styles[nodeType]
     if (typeStyle) {
-        // Merge layout properties
-        const { visualStyles, hover, focus, active, ...otherProps } = typeStyle
-        layoutProps = { ...layoutProps, ...otherProps }
+        ;({ layoutProps, visualStyle } = applyStyleBlock(typeStyle, layoutProps, visualStyle))
+    }
 
-        // Merge visual styles
-        if (visualStyles) {
-            visualStyle = { ...visualStyle, ...visualStyles }
-        }
-
-        // Merge pseudo-state styles
-        if (hover) {
-            // hover is a LayoutProperties that may contain visualStyles
-            const hoverVisual = hover.visualStyles || hover
-            visualStyle.hover = { ...(visualStyle.hover || {}), ...hoverVisual }
-        }
-        if (focus) {
-            // focus is a LayoutProperties that may contain visualStyles
-            const focusVisual = focus.visualStyles || focus
-            visualStyle.focus = { ...(visualStyle.focus || {}), ...focusVisual }
-        }
-        if (active) {
-            // active is a LayoutProperties that may contain visualStyles
-            const activeVisual = active.visualStyles || active
-            visualStyle.active = { ...(visualStyle.active || {}), ...activeVisual }
+    // 2. Scoped element-type styles (only if this node belongs to a scoped component)
+    if (scopeId) {
+        const scopedTypeStyle = styles[`${scopeId}\x00${nodeType}`]
+        if (scopedTypeStyle) {
+            ;({ layoutProps, visualStyle } = applyStyleBlock(scopedTypeStyle, layoutProps, visualStyle))
         }
     }
 
-    // Then apply class-based styles (these override type styles)
+    // 3 & 4. Class-based styles (global then scoped)
     for (const className of classNames) {
+        // Global class
         const classStyle = styles[`.${className}`]
         if (classStyle) {
-            // Merge layout properties
-            const { visualStyles, hover, focus, active, ...otherProps } = classStyle
-            layoutProps = { ...layoutProps, ...otherProps }
+            ;({ layoutProps, visualStyle } = applyStyleBlock(classStyle, layoutProps, visualStyle))
+        }
 
-            // Merge visual styles
-            if (visualStyles) {
-                visualStyle = { ...visualStyle, ...visualStyles }
-            }
-
-            // Merge pseudo-state styles
-            if (hover) {
-                // hover is a LayoutProperties that may contain visualStyles
-                const hoverVisual = hover.visualStyles || hover
-                visualStyle.hover = { ...(visualStyle.hover || {}), ...hoverVisual }
-            }
-            if (focus) {
-                // focus is a LayoutProperties that may contain visualStyles
-                const focusVisual = focus.visualStyles || focus
-                visualStyle.focus = { ...(visualStyle.focus || {}), ...focusVisual }
-            }
-            if (active) {
-                // active is a LayoutProperties that may contain visualStyles
-                const activeVisual = active.visualStyles || active
-                visualStyle.active = { ...(visualStyle.active || {}), ...activeVisual }
+        // Scoped class (only for nodes that carry a scope ID)
+        if (scopeId) {
+            const scopedClassStyle = styles[`${scopeId}\x00.${className}`]
+            if (scopedClassStyle) {
+                ;({ layoutProps, visualStyle } = applyStyleBlock(scopedClassStyle, layoutProps, visualStyle))
             }
         }
     }
@@ -325,7 +336,8 @@ export function createLayoutRenderer(
                 const { layoutProps: cssLayoutProps, visualStyle } = resolveNodeStyles(
                     node.type,
                     classNames,
-                    styles
+                    styles,
+                    node._scopeId
                 )
                 const layoutProps: LayoutProperties = uaDefaults
                     ? { ...uaDefaults, ...cssLayoutProps }
@@ -437,15 +449,22 @@ export function createLayoutRenderer(
  * layout computation.
  */
 export function applyCompoundStyles(root: LayoutNode, styles: ParsedStyles): void {
-    // Build an index: last-class → [{parts, style}] for all compound selectors
-    const index = new Map<string, Array<{ parts: string[]; style: LayoutProperties }>>()
-    for (const [selector, style] of Object.entries(styles)) {
+    // Build an index: last-class → [{parts, style, scopeId?}] for compound selectors.
+    // Keys in `styles` may be plain selectors (".parent .child") or scoped ones
+    // encoded as "${scopeId}\x00.parent .child". We decode and index both.
+    const index = new Map<string, Array<{ parts: string[]; style: LayoutProperties; scopeId?: string }>>()
+    for (const [key, style] of Object.entries(styles)) {
+        const decoded = decodeScopedKey(key)
+        const selector = decoded ? decoded.selector : key
+        const scopeId = decoded ? decoded.scopeId : undefined
+
         if (!selector.includes(" ")) continue
+
         const parts = selector.split(/\s+/)
         const lastPart = parts[parts.length - 1]!
         const className = lastPart.startsWith(".") ? lastPart.slice(1) : lastPart
         if (!index.has(className)) index.set(className, [])
-        index.get(className)!.push({ parts, style })
+        index.get(className)!.push({ parts, style, scopeId })
     }
     if (index.size === 0) return
 
@@ -459,7 +478,10 @@ export function applyCompoundStyles(root: LayoutNode, styles: ParsedStyles): voi
         for (const className of classNames) {
             const candidates = index.get(className)
             if (!candidates) continue
-            for (const { parts, style } of candidates) {
+            for (const { parts, style, scopeId } of candidates) {
+                // Scoped rule: only apply if this node's scope matches
+                if (scopeId && node._scopeId !== scopeId) continue
+
                 const precedingParts = parts.slice(0, -1)
                 const allMatch = precedingParts.every(part => {
                     const partClass = part.startsWith(".") ? part.slice(1) : part

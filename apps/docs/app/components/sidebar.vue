@@ -144,9 +144,11 @@ const sidebarHtml = ref({
 
 a {
     text-decoration: none;
+        margin-left: 0;
 
     &:hover {
-        background: grey;
+        background: rgb(40, 39, 39);
+        margin-left: 1;
     }
 }
 

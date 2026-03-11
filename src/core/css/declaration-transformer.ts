@@ -171,6 +171,50 @@ case 'color': {
       }
       break
 
+    // Per-side border shorthands: border-top / border-right / border-bottom / border-left
+    // Each accepts the same <width> <style> <color> shorthand as `border`
+    case 'border-top':
+    case 'border-right':
+    case 'border-bottom':
+    case 'border-left': {
+      const side = prop.slice(7) as 'top' | 'right' | 'bottom' | 'left'
+      const widthKey = `border${side.charAt(0).toUpperCase() + side.slice(1)}Width` as
+        'borderTopWidth' | 'borderRightWidth' | 'borderBottomWidth' | 'borderLeftWidth'
+      const colorKey = `border${side.charAt(0).toUpperCase() + side.slice(1)}Color` as
+        'borderTopColor' | 'borderRightColor' | 'borderBottomColor' | 'borderLeftColor'
+      if (value === 'none' || value === '0') {
+        props[widthKey] = 0
+      } else {
+        const borderData = parseBorder(value)
+        props[widthKey] = borderData ? 1 : 0
+        if (borderData?.fg) props[colorKey] = borderData.fg
+      }
+      break
+    }
+
+    // Per-side border-{side}-width / color
+    case 'border-top-width':
+    case 'border-right-width':
+    case 'border-bottom-width':
+    case 'border-left-width': {
+      const side = prop.split('-')[1]! as 'top' | 'right' | 'bottom' | 'left'
+      const widthKey = `border${side.charAt(0).toUpperCase() + side.slice(1)}Width` as
+        'borderTopWidth' | 'borderRightWidth' | 'borderBottomWidth' | 'borderLeftWidth'
+      const w = parseNumericValue(value)
+      if (typeof w === 'number') props[widthKey] = w
+      break
+    }
+    case 'border-top-color':
+    case 'border-right-color':
+    case 'border-bottom-color':
+    case 'border-left-color': {
+      const side = prop.split('-')[1]! as 'top' | 'right' | 'bottom' | 'left'
+      const colorKey = `border${side.charAt(0).toUpperCase() + side.slice(1)}Color` as
+        'borderTopColor' | 'borderRightColor' | 'borderBottomColor' | 'borderLeftColor'
+      props[colorKey] = parseColor(value) ?? undefined
+      break
+    }
+
     // Overflow handling
     case 'overflow':
       if (value === 'scroll' || value === 'auto') {

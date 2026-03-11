@@ -84,10 +84,31 @@ export async function transformCSSToLayout(css: string): Promise<ParsedStyles> {
 export const transformCSSToBlessed = transformCSSToLayout
 
 /**
- * Extract and compile styles from a Vue SFC descriptor
+ * Encode a scoped selector key.
+ * Format: `${scopeId}\x00${selector}` — the null byte is impossible in any CSS
+ * selector so it acts as an unambiguous separator.
+ */
+export function encodeScopedKey(scopeId: string, selector: string): string {
+  return `${scopeId}\x00${selector}`
+}
+
+/**
+ * Decode a scoped selector key back to { scopeId, selector }.
+ * Returns null if the key is not scoped.
+ */
+export function decodeScopedKey(key: string): { scopeId: string; selector: string } | null {
+  const idx = key.indexOf('\x00')
+  if (idx === -1) return null
+  return { scopeId: key.slice(0, idx), selector: key.slice(idx + 1) }
+}
+
+/**
+ * Extract and compile styles from a Vue SFC descriptor.
+ * For scoped blocks, all selector keys are prefixed with the scopeId so they
+ * can be matched only against nodes that carry the same scope identifier.
  */
 export async function extractSFCStyles(
-  styleBlocks: Array<{ content: string; scoped?: boolean; lang?: string }>
+  styleBlocks: Array<{ content: string; scoped?: boolean; scopeId?: string; lang?: string }>
 ): Promise<ParsedStyles> {
   let allStyles: ParsedStyles = {}
 
@@ -99,16 +120,17 @@ export async function extractSFCStyles(
     }
     const styles = await transformCSSToLayout(css)
 
-    // Note: We're ignoring the 'scoped' attribute for now since blessed doesn't
-    // support adding data attributes to elements like Vue does in the DOM.
-    // All styles are treated as global in the terminal context.
-
-    // Deep merge styles to properly combine nested objects like visualStyles
     for (const selector in styles) {
-      if (allStyles[selector]) {
-        allStyles[selector] = deepMerge(allStyles[selector], styles[selector])
+      // Scoped blocks: rewrite each selector key to include the scope ID so
+      // it only matches nodes from this component.
+      const key = (block.scoped && block.scopeId)
+        ? encodeScopedKey(block.scopeId, selector)
+        : selector
+
+      if (allStyles[key]) {
+        allStyles[key] = deepMerge(allStyles[key]!, styles[selector]!)
       } else {
-        allStyles[selector] = styles[selector]
+        allStyles[key] = styles[selector]!
       }
     }
   }

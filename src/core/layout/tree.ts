@@ -16,7 +16,7 @@ import type {
     Spacing,
 } from "./types"
 import { computeFlexLayout, getFlexConfig, isFlexContainer, resolveDimension } from "./flexbox"
-import { getPadding, getMargin, getBorder, applyConstraints } from "./box-model"
+import { getPadding, getMargin, getBorder, getBorderSide, applyConstraints } from "./box-model"
 import { isScrollableNode } from "./utils"
 import { wrapText, enableWrapCache, clearWrapCache } from "./text-wrapper"
 
@@ -387,11 +387,14 @@ export class LayoutEngine {
         if (!node.layout || node.children.length === 0) return
 
         const { x, y, width, height, padding, border } = node.layout
-        const borderOffset = border.width > 0 ? 1 : 0
-        const contentX = x + padding.left + borderOffset
-        const contentY = y + padding.top + borderOffset
-        const contentWidth = Math.max(0, width - padding.left - padding.right - borderOffset * 2)
-        const contentHeight = Math.max(0, height - padding.top - padding.bottom - borderOffset * 2)
+        const borderL = getBorderSide(border, 'left')
+        const borderT = getBorderSide(border, 'top')
+        const borderR = getBorderSide(border, 'right')
+        const borderB = getBorderSide(border, 'bottom')
+        const contentX = x + padding.left + borderL
+        const contentY = y + padding.top + borderT
+        const contentWidth = Math.max(0, width - padding.left - padding.right - borderL - borderR)
+        const contentHeight = Math.max(0, height - padding.top - padding.bottom - borderT - borderB)
 
         if (isFlexContainer(node.layoutProps)) {
             const flexConfig = getFlexConfig(node.layoutProps)
@@ -404,8 +407,8 @@ export class LayoutEngine {
             for (const child of node.children) {
                 // For absolutely positioned children, use border-box position as parent position
                 // For other children, use content-box position
-                const childParentX = child.layoutProps.position === "absolute" ? x + borderOffset : contentX
-                const childParentY = child.layoutProps.position === "absolute" ? y + borderOffset : contentY
+                const childParentX = child.layoutProps.position === "absolute" ? x + borderL : contentX
+                const childParentY = child.layoutProps.position === "absolute" ? y + borderT : contentY
 
                 this.computeNodeLayout(child, contentWidth, contentHeight, childParentX, childParentY, childFlexDir)
             }
@@ -438,12 +441,12 @@ export class LayoutEngine {
                     }
                     autoHeight += effectiveGap * Math.max(0, flexChildren.length - 1)
                 }
-                autoHeight += padding.top + padding.bottom + borderOffset * 2
+                autoHeight += padding.top + padding.bottom + borderT + borderB
                 if (node.layoutProps.maxHeight !== undefined && autoHeight > node.layoutProps.maxHeight) {
                     autoHeight = node.layoutProps.maxHeight
                 }
                 node.layout.height = autoHeight
-                flexContentHeight = autoHeight - padding.top - padding.bottom - borderOffset * 2
+                flexContentHeight = autoHeight - padding.top - padding.bottom - borderT - borderB
             }
 
             computeFlexLayout(node, flexChildren, flexConfig, contentWidth, flexContentHeight, !isScrollableNode(node))
@@ -478,8 +481,8 @@ export class LayoutEngine {
                 const isAbsolute = child.layoutProps.position === "absolute"
                 // For absolutely positioned children, use border-box position as parent position
                 // For other children, use content-box position for block layout
-                const childParentX = isAbsolute ? x + borderOffset : contentX
-                const childParentY = isAbsolute ? y + borderOffset : currentY
+                const childParentX = isAbsolute ? x + borderL : contentX
+                const childParentY = isAbsolute ? y + borderT : currentY
 
                 this.computeNodeLayout(child, contentWidth, contentHeight, childParentX, childParentY, undefined)
                 if (child.layout && !isAbsolute) {
@@ -623,7 +626,7 @@ export class LayoutEngine {
         border: BorderStyle,
         padding: Spacing
     ): number {
-        const borderH = border.width > 0 ? 2 : 0
+        const borderH = getBorderSide(border, 'top') + getBorderSide(border, 'bottom')
         const paddingH = padding.top + padding.bottom
 
         // Single-line text and heading elements
@@ -765,10 +768,9 @@ export class LayoutEngine {
         if (shouldWrap) {
             // For text nodes, width = content.length (intrinsic), so use containerWidth as the
             // available wrap width. For element nodes, subtract padding + border from own width.
-            const borderOffset = border.width > 0 ? 1 : 0
             const contentWidth = node.type === 'text'
                 ? containerWidth
-                : Math.max(0, width - padding.left - padding.right - borderOffset * 2)
+                : Math.max(0, width - padding.left - padding.right - getBorderSide(border, 'left') - getBorderSide(border, 'right'))
             const wrappedLineCount = this.applyTextWrapping(node, contentWidth)
             // If height was not explicitly set, update it based on wrapped content
             if (!layoutProps.height && wrappedLineCount > 0) {
@@ -829,11 +831,14 @@ export class LayoutEngine {
         // Compute children layout
         if (node.children.length > 0) {
             // Calculate content area (inside padding and border)
-            const borderOffset = border.width > 0 ? 1 : 0
-            const contentX = x + padding.left + borderOffset
-            const contentY = y + padding.top + borderOffset
-            const contentWidth = width - padding.left - padding.right - borderOffset * 2
-            const contentHeight = height - padding.top - padding.bottom - borderOffset * 2
+            const borderL = getBorderSide(border, 'left')
+            const borderT = getBorderSide(border, 'top')
+            const borderR = getBorderSide(border, 'right')
+            const borderB = getBorderSide(border, 'bottom')
+            const contentX = x + padding.left + borderL
+            const contentY = y + padding.top + borderT
+            const contentWidth = width - padding.left - padding.right - borderL - borderR
+            const contentHeight = height - padding.top - padding.bottom - borderT - borderB
 
             // Check if this is a flex container
             if (isFlexContainer(layoutProps)) {
@@ -847,8 +852,8 @@ export class LayoutEngine {
                 for (const child of node.children) {
                     // For absolutely positioned children, use border-box position as parent position
                     // For other children, use content-box position
-                    const childParentX = child.layoutProps.position === "absolute" ? x + borderOffset : contentX
-                    const childParentY = child.layoutProps.position === "absolute" ? y + borderOffset : contentY
+                    const childParentX = child.layoutProps.position === "absolute" ? x + borderL : contentX
+                    const childParentY = child.layoutProps.position === "absolute" ? y + borderT : contentY
 
 
                     this.computeNodeLayout(
@@ -905,12 +910,12 @@ export class LayoutEngine {
                         }
                         autoHeight += effectiveGap * Math.max(0, flexChildren.length - 1)
                     }
-                    autoHeight += padding.top + padding.bottom + borderOffset * 2
+                    autoHeight += padding.top + padding.bottom + borderT + borderB
                     if (layoutProps.maxHeight !== undefined && autoHeight > layoutProps.maxHeight) {
                         autoHeight = layoutProps.maxHeight
                     }
                     node.layout.height = autoHeight
-                    flexContentHeight = autoHeight - padding.top - padding.bottom - borderOffset * 2
+                    flexContentHeight = autoHeight - padding.top - padding.bottom - borderT - borderB
                 }
 
                 const allowShrink = !isScrollableNode(node)
@@ -959,8 +964,8 @@ export class LayoutEngine {
                     const isAbsolute = child.layoutProps.position === "absolute"
                     // For absolutely positioned children, use border-box position as parent position
                     // For other children, use content-box position for block layout
-                    const childParentX = isAbsolute ? x + borderOffset : contentX
-                    const childParentY = isAbsolute ? y + borderOffset : currentY
+                    const childParentX = isAbsolute ? x + borderL : contentX
+                    const childParentY = isAbsolute ? y + borderT : currentY
                     this.computeNodeLayout(
                         child,
                         contentWidth,
@@ -980,7 +985,7 @@ export class LayoutEngine {
                 if (height === 0 && node.children.length > 0 && !isScrollableNode(node)) {
                     const totalChildrenHeight = currentY - contentY
                     let expandedHeight =
-                        totalChildrenHeight + padding.top + padding.bottom + borderOffset * 2
+                        totalChildrenHeight + padding.top + padding.bottom + borderT + borderB
                     // Reapply maxHeight — applyConstraints ran before children, so it missed auto-expansion
                     if (
                         layoutProps.maxHeight !== undefined &&
@@ -1003,7 +1008,7 @@ export class LayoutEngine {
                     }
                     if (maxChildWidth > 0) {
                         node.layout.width =
-                            maxChildWidth + padding.left + padding.right + borderOffset * 2
+                            maxChildWidth + padding.left + padding.right + borderL + borderR
                     }
                 }
             }

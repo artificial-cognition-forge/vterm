@@ -54,38 +54,76 @@ export function getMargin(props: LayoutProperties): Spacing {
 }
 
 /**
- * Extract border from layout properties
+ * Extract border from layout properties, merging shorthand and per-side overrides.
  */
 export function getBorder(props: LayoutProperties): BorderStyle {
+  let base: BorderStyle
   if (props.border !== undefined) {
-    return {
+    base = {
       ...props.border,
-      // borderType overrides the type embedded in the border shorthand
       type: props.borderType ?? props.border.type,
-      // border = undefined (from border-style: none) means width 0
       width: props.border.width,
+    }
+  } else {
+    base = {
+      width: props.borderWidth ?? 0,
+      fg: props.borderFg,
+      type: props.borderType ?? 'line',
     }
   }
 
-  return {
-    width: props.borderWidth ?? 0,
-    fg: props.borderFg,
-    type: props.borderType ?? 'line',
+  // Per-side overrides
+  if (props.borderTopWidth !== undefined) base.top = props.borderTopWidth
+  if (props.borderRightWidth !== undefined) base.right = props.borderRightWidth
+  if (props.borderBottomWidth !== undefined) base.bottom = props.borderBottomWidth
+  if (props.borderLeftWidth !== undefined) base.left = props.borderLeftWidth
+  if (props.borderTopColor !== undefined) base.topFg = props.borderTopColor
+  if (props.borderRightColor !== undefined) base.rightFg = props.borderRightColor
+  if (props.borderBottomColor !== undefined) base.bottomFg = props.borderBottomColor
+  if (props.borderLeftColor !== undefined) base.leftFg = props.borderLeftColor
+
+  // If any per-side width is set and no base fg/type, apply defaults
+  const hasAnySide = base.top !== undefined || base.right !== undefined ||
+                     base.bottom !== undefined || base.left !== undefined
+  if (hasAnySide && !base.fg) {
+    base.fg = base.topFg ?? base.bottomFg ?? base.leftFg ?? base.rightFg
   }
+  if (hasAnySide && !base.type) {
+    base.type = 'line'
+  }
+
+  return base
+}
+
+/**
+ * Get the effective width (0 or 1) for a specific border side.
+ * Per-side values override the uniform shorthand width.
+ */
+export function getBorderSide(border: BorderStyle, side: 'top' | 'right' | 'bottom' | 'left'): number {
+  const sideVal = border[side]
+  return sideVal !== undefined ? (sideVal > 0 ? 1 : 0) : (border.width > 0 ? 1 : 0)
+}
+
+/**
+ * Get the effective fg color for a specific border side.
+ */
+export function getBorderSideFg(border: BorderStyle, side: 'top' | 'right' | 'bottom' | 'left'): string | undefined {
+  const map = { top: border.topFg, right: border.rightFg, bottom: border.bottomFg, left: border.leftFg }
+  return map[side] ?? border.fg
 }
 
 /**
  * Calculate total horizontal spacing (padding + border)
  */
 export function getHorizontalSpacing(padding: Spacing, border: BorderStyle): number {
-  return padding.left + padding.right + (border.width > 0 ? 2 : 0)
+  return padding.left + padding.right + getBorderSide(border, 'left') + getBorderSide(border, 'right')
 }
 
 /**
  * Calculate total vertical spacing (padding + border)
  */
 export function getVerticalSpacing(padding: Spacing, border: BorderStyle): number {
-  return padding.top + padding.bottom + (border.width > 0 ? 2 : 0)
+  return padding.top + padding.bottom + getBorderSide(border, 'top') + getBorderSide(border, 'bottom')
 }
 
 /**
@@ -124,10 +162,9 @@ export function getOuterHeight(contentHeight: number, padding: Spacing, border: 
  * Calculate the inner position (accounting for padding and border)
  */
 export function getInnerPosition(padding: Spacing, border: BorderStyle): { x: number; y: number } {
-  const borderOffset = border.width > 0 ? 1 : 0
   return {
-    x: padding.left + borderOffset,
-    y: padding.top + borderOffset,
+    x: padding.left + getBorderSide(border, 'left'),
+    y: padding.top + getBorderSide(border, 'top'),
   }
 }
 
