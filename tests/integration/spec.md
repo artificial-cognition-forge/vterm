@@ -43,26 +43,26 @@ const colors = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'g
 ```
 
 **Tests to verify:**
-- [ ] Each named color renders with correct foreground
-- [ ] Bright variants render distinctly from base colors
-- [ ] Each CSS color name from extended palette (aliceblue...yellowgreen) converts correctly
-- [ ] Named colors work in `color`, `background-color`, `border-color`
+- [x] Each named color renders with correct foreground
+- [x] Bright variants render distinctly from base colors
+- [x] Each CSS color name from extended palette (aliceblue...yellowgreen) converts correctly
+- [x] Named colors work in `color`, `background-color`, `border-color`
 
 ### 1.2 Hex Colors
 
 **Tests:**
-- [ ] `#RGB` expands to `#RRGGBB` correctly
-- [ ] `#RRGGBB` passes through unchanged
-- [ ] `#RRGGBBAA` strips alpha, becomes `#RRGGBB`
+- [x] `#RGB` expands to `#RRGGBB` correctly
+- [x] `#RRGGBB` passes through unchanged
+- [x] `#RRGGBBAA` strips alpha, becomes `#RRGGBB`
 - [ ] Invalid hex formats gracefully degrade
 
 ### 1.3 Functional Colors
 
 **Tests:**
-- [ ] `rgb(255, 0, 0)` → red with correct rendering
-- [ ] `rgba(255, 0, 0, 0.5)` ignores alpha, renders red
-- [ ] `hsl(0, 100%, 50%)` → red
-- [ ] `hsl(240, 100%, 50%)` → blue
+- [x] `rgb(255, 0, 0)` → red with correct rendering
+- [x] `rgba(255, 0, 0, 0.5)` ignores alpha, renders red
+- [x] `hsl(0, 100%, 50%)` → red
+- [x] `hsl(240, 100%, 50%)` → blue
 - [ ] `hsl(h, s%, l%)` with various s%, l% values
 
 ### 1.4 256-Color Index
@@ -75,9 +75,9 @@ const colors = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'g
 ### 1.5 Background Colors
 
 **Tests:**
-- [ ] `background: red` fills entire element box
-- [ ] Child background overwrites parent in child's region
-- [ ] Background doesn't fill border (only content + padding)
+- [x] `background: red` fills entire element box
+- [x] Child background overwrites parent in child's region
+- [x] Background doesn't fill border (only content + padding)
 - [ ] Multiple nested backgrounds layer correctly
 
 ---
@@ -103,12 +103,12 @@ div { width: 30; height: 1; background: grey; }
 ```
 
 **Tests:**
-- [ ] `text-align: left` — text starts at content-left x
-- [ ] `text-align: center` — text centered within content width
-- [ ] `text-align: right` — text ends at content-right x
-- [ ] Text alignment respects padding
+- [x] `text-align: left` — text starts at content-left x
+- [x] `text-align: center` — text centered within content width
+- [x] `text-align: right` — text ends at content-right x
+- [x] Text alignment respects padding
 - [ ] Text alignment respects border
-- [ ] Text longer than width clips (not wrapped)
+- [x] Text longer than width clips (not wrapped)
 
 ### 2.2 Vertical Alignment
 
@@ -129,35 +129,35 @@ div { width: 20; height: 5; background: blue; }
 ```
 
 **Tests:**
-- [ ] `vertical-align: top` — text at first content row
-- [ ] `vertical-align: middle` — text at vertical center
-- [ ] `vertical-align: bottom` — text at last content row
-- [ ] Vertical alignment respects padding
+- [x] `vertical-align: top` — text at first content row
+- [x] `vertical-align: middle` — text at vertical center
+- [x] `vertical-align: bottom` — text at last content row
+- [x] Vertical alignment respects padding
 
 ### 2.3 Font Weight
 
 **Tests:**
-- [ ] `font-weight: bold` sets `cell.bold = true`
-- [ ] `font-weight: 700` sets bold
-- [ ] `font-weight: 600` sets bold
-- [ ] `font-weight: 400` (normal) no bold
-- [ ] `bold: true` shorthand works
-- [ ] Bold works in all text regions (content, borders, etc.)
+- [x] `font-weight: bold` sets `cell.bold = true`
+- [x] `font-weight: 700` sets bold
+- [x] `font-weight: 600` sets bold
+- [x] `font-weight: 400` (normal) no bold
+- [x] `bold: true` shorthand works
+- [x] Bold works in all text regions (content, borders, etc.)
 
 ### 2.4 Text Decoration
 
 **Tests:**
-- [ ] `text-decoration: underline` sets `cell.underline = true`
-- [ ] `underline: true` shorthand works
-- [ ] Underline works on all text (headings, paragraphs, links)
-- [ ] Underline stacks with bold
+- [x] `text-decoration: underline` sets `cell.underline = true`
+- [x] `underline: true` shorthand works
+- [x] Underline works on all text (headings, paragraphs, links)
+- [x] Underline stacks with bold
 
 ### 2.5 Font Style
 
 **Tests:**
-- [ ] `font-style: italic` sets `cell.italic = true`
-- [ ] `italic: true` shorthand works
-- [ ] Italic stacks with bold and underline
+- [x] `font-style: italic` sets `cell.italic = true`
+- [x] `italic: true` shorthand works
+- [x] Italic stacks with bold and underline
 
 ---
 
@@ -183,24 +183,24 @@ div { width: 20; height: 5; background: blue; }
 ```
 
 **Tests:**
-- [ ] `padding: 1` applies all four sides uniformly
-- [ ] Content starts at `(border + padding, border + padding)`
-- [ ] Empty cells between border and content are padding (unfilled)
+- [x] `padding: 1` applies all four sides uniformly
+- [x] Content starts at `(border + padding, border + padding)`
+- [x] Empty cells between border and content are padding (unfilled)
 
 ### 3.2 Directional Padding
 
 **Tests:**
-- [ ] `padding: 1 2` → top/bottom=1, left/right=2
-- [ ] `padding: 1 2 3 4` → top=1, right=2, bottom=3, left=4
-- [ ] `padding-top`, `padding-right`, `padding-bottom`, `padding-left` individual properties
-- [ ] Padding affects text position
+- [x] `padding: 1 2` → top/bottom=1, left/right=2
+- [x] `padding: 1 2 3 4` → top=1, right=2, bottom=3, left=4
+- [x] `padding-top`, `padding-right`, `padding-bottom`, `padding-left` individual properties
+- [x] Padding affects text position
 
 ### 3.3 Padding with Border
 
 **Tests:**
-- [ ] Border is outside padding
-- [ ] Content starts at `x + border-width + padding-left`
-- [ ] Border doesn't count toward padding
+- [x] Border is outside padding
+- [x] Content starts at `x + border-width + padding-left`
+- [x] Border doesn't count toward padding
 
 ---
 
@@ -229,17 +229,17 @@ div { width: 20; height: 5; background: blue; }
 ```
 
 **Tests:**
-- [ ] `margin: 1` creates space around element
-- [ ] Margin collapses between block siblings (top/bottom)
-- [ ] First element margin-top is preserved
-- [ ] Last element margin-bottom is preserved
+- [x] `margin: 1` creates space around element
+- [x] Margin collapses between block siblings (top/bottom)
+- [x] First element margin-top is preserved
+- [x] Last element margin-bottom is preserved
 
 ### 4.2 Directional Margin
 
 **Tests:**
-- [ ] `margin: 1 2` → top/bottom=1, left/right=2
-- [ ] `margin: 1 2 3 4` → top=1, right=2, bottom=3, left=4
-- [ ] `margin-top`, `margin-right`, `margin-bottom`, `margin-left`
+- [x] `margin: 1 2` → top/bottom=1, left/right=2
+- [x] `margin: 1 2 3 4` → top=1, right=2, bottom=3, left=4
+- [x] `margin-top`, `margin-right`, `margin-bottom`, `margin-left`
 
 ### 4.3 Auto Margins
 
@@ -269,47 +269,47 @@ div { width: 20; height: 5; background: blue; }
 ```
 
 **Tests:**
-- [ ] `border-style: solid` renders `┌─┐│└┘`
-- [ ] Border corners at exact coordinates
-- [ ] Horizontal edges `─` drawn correctly
-- [ ] Vertical edges `│` drawn correctly
-- [ ] Content starts at `(x+1, y+1)`
+- [x] `border-style: solid` renders `┌─┐│└┘`
+- [x] Border corners at exact coordinates
+- [x] Horizontal edges `─` drawn correctly
+- [x] Vertical edges `│` drawn correctly
+- [x] Content starts at `(x+1, y+1)`
 
 ### 5.2 Border Style: Heavy
 
 **Tests:**
-- [ ] `border-style: heavy` renders `┏━┓┃┗┛`
-- [ ] Heavy borders visually distinct
+- [x] `border-style: heavy` renders `┏━┓┃┗┛`
+- [x] Heavy borders visually distinct
 
 ### 5.3 Border Style: Double
 
 **Tests:**
-- [ ] `border-style: double` renders `╔═╗║╚╝`
+- [x] `border-style: double` renders `╔═╗║╚╝`
 
 ### 5.4 Border Style: ASCII
 
 **Tests:**
-- [ ] `border-style: ascii` renders `+-+|`
+- [x] `border-style: ascii` renders `+-+|`
 
 ### 5.5 Border Color
 
 **Tests:**
-- [ ] `border-color: red` applies to all border characters
-- [ ] Border color independent of text color
-- [ ] Border color works with all styles (solid, heavy, double, ascii)
+- [x] `border-color: red` applies to all border characters
+- [x] Border color independent of text color
+- [x] Border color works with all styles (solid, heavy, double, ascii)
 
 ### 5.6 Border Width
 
 **Tests:**
 - [ ] `border-width: 0` → no border
-- [ ] `border-width: 1` → one-character border
-- [ ] Border width affects content offset
+- [x] `border-width: 1` → one-character border
+- [x] Border width affects content offset
 
 ### 5.7 Shorthand
 
 **Tests:**
-- [ ] `border: 1px solid blue`
-- [ ] `border: 1 line white`
+- [x] `border: 1px solid blue`
+- [x] `border: 1 line white`
 
 ---
 
@@ -331,11 +331,11 @@ div { width: 20; height: 5; background: blue; }
 ```
 
 **Tests:**
-- [ ] `width: N` renders exactly N cells wide
-- [ ] `height: N` renders exactly N cells tall
-- [ ] Pixel units (`20px`) stripped to raw cell count
-- [ ] `em` units treated as raw cell count (no font-size basis)
-- [ ] `rem` units treated as raw cell count
+- [x] `width: N` renders exactly N cells wide
+- [x] `height: N` renders exactly N cells tall
+- [x] Pixel units (`20px`) stripped to raw cell count
+- [x] `em` units treated as raw cell count (no font-size basis)
+- [x] `rem` units treated as raw cell count
 
 ### 6.2 Percentage Dimensions
 
@@ -355,11 +355,11 @@ div { width: 20; height: 5; background: blue; }
 ```
 
 **Tests:**
-- [ ] `width: 50%` = half of parent width
-- [ ] `height: 100%` = full parent height
-- [ ] Percentages resolve at layout time
-- [ ] Percentages work with flex children
-- [ ] Percentages with padding/border computed correctly
+- [x] `width: 50%` = half of parent width
+- [x] `height: 100%` = full parent height
+- [x] Percentages resolve at layout time
+- [x] Percentages work with flex children
+- [x] Percentages with padding/border computed correctly
 
 ### 6.3 `calc()` Expressions
 
@@ -380,11 +380,11 @@ div { width: 20; height: 5; background: blue; }
 ```
 
 **Tests:**
-- [ ] `calc(100% - 2)` subtracts correctly
-- [ ] `calc(50% + 5)` adds correctly
-- [ ] `calc(100% / 2)` divides correctly
+- [x] `calc(100% - 2)` subtracts correctly
+- [x] `calc(50% + 5)` adds correctly
+- [x] `calc(100% / 2)` divides correctly
 - [ ] Nested calc expressions (if supported)
-- [ ] calc() with mixed units (% and fixed)
+- [x] calc() with mixed units (% and fixed)
 
 ### 6.4 Min/Max Dimensions
 
@@ -421,10 +421,10 @@ div { width: 20; height: 2; background: blue; }
 ```
 
 **Tests:**
-- [ ] `display: block` stacks vertically
-- [ ] Block elements fill parent width (unless fixed)
-- [ ] Block elements respect margin collapsing
-- [ ] Block elements respect padding/border
+- [x] `display: block` stacks vertically
+- [x] Block elements fill parent width (unless fixed)
+- [x] Block elements respect margin collapsing
+- [x] Block elements respect padding/border
 
 ### 7.2 Display: Flex
 
@@ -450,12 +450,12 @@ div { width: 20; height: 2; background: blue; }
 ```
 
 **Tests:**
-- [ ] `display: flex` with `flex-direction: row` (default)
-- [ ] `display: flex` with `flex-direction: column`
-- [ ] `display: flex` with `flex-direction: row-reverse`
-- [ ] `display: flex` with `flex-direction: column-reverse`
-- [ ] Flex children sized correctly
-- [ ] Flex children positioned correctly
+- [x] `display: flex` with `flex-direction: row` (default)
+- [x] `display: flex` with `flex-direction: column`
+- [x] `display: flex` with `flex-direction: row-reverse`
+- [x] `display: flex` with `flex-direction: column-reverse`
+- [x] Flex children sized correctly
+- [x] Flex children positioned correctly
 
 ### 7.3 Display: None
 
@@ -473,10 +473,10 @@ div { width: 20; height: 2; background: blue; }
 ```
 
 **Tests:**
-- [ ] `display: none` hides element
-- [ ] `display: none` takes no layout space
-- [ ] `display: none` children also hidden
-- [ ] Sibling after hidden element renders at correct position
+- [x] `display: none` hides element
+- [x] `display: none` takes no layout space
+- [x] `display: none` children also hidden
+- [x] Sibling after hidden element renders at correct position
 
 ### 7.4 Display: Inline
 
@@ -491,10 +491,10 @@ div { width: 20; height: 2; background: blue; }
 ### 8.1 Flex Direction
 
 **Tests (comprehensive matrix):**
-- [ ] `flex-direction: row` — children left-to-right
-- [ ] `flex-direction: column` — children top-to-bottom
-- [ ] `flex-direction: row-reverse` — children right-to-left
-- [ ] `flex-direction: column-reverse` — children bottom-to-top
+- [x] `flex-direction: row` — children left-to-right
+- [x] `flex-direction: column` — children top-to-bottom
+- [x] `flex-direction: row-reverse` — children right-to-left
+- [x] `flex-direction: column-reverse` — children bottom-to-top
 
 ### 8.2 Justify Content (Main Axis)
 
@@ -541,12 +541,12 @@ div[class] {
 ```
 
 **Tests:**
-- [ ] `justify-content: flex-start` — children at start
-- [ ] `justify-content: flex-end` — children at end
-- [ ] `justify-content: center` — children centered
-- [ ] `justify-content: space-between` — children with equal space between
-- [ ] `justify-content: space-around` — children with equal space around
-- [ ] `justify-content: space-evenly` — children with equal space including edges
+- [x] `justify-content: flex-start` — children at start
+- [x] `justify-content: flex-end` — children at end
+- [x] `justify-content: center` — children centered
+- [x] `justify-content: space-between` — children with equal space between
+- [x] `justify-content: space-around` — children with equal space around
+- [x] `justify-content: space-evenly` — children with equal space including edges
 
 ### 8.3 Align Items (Cross Axis)
 
@@ -581,42 +581,13 @@ div[class] {
 ```
 
 **Tests:**
-- [ ] `align-items: flex-start` — all children top-aligned
-- [ ] `align-items: flex-end` — all children bottom-aligned
-- [ ] `align-items: center` — all children centered
-- [ ] `align-items: stretch` — children stretch to container height
-- [ ] `align-items: baseline` — treated as flex-start
+- [x] `align-items: flex-start` — all children top-aligned
+- [x] `align-items: flex-end` — all children bottom-aligned
+- [x] `align-items: center` — all children centered
+- [x] `align-items: stretch` — children stretch to container height
+- [x] `align-items: baseline` — treated as flex-start
 
 ### 8.4 Flex Wrap
-
-```vue
-<!-- tests/integration/flexbox/flex-wrap.vue -->
-<template>
-  <div class="nowrap">
-    <div class="item">A</div>
-    <div class="item">B</div>
-    <div class="item">C</div>
-  </div>
-  <div class="wrap">
-    <div class="item">A</div>
-    <div class="item">B</div>
-    <div class="item">C</div>
-  </div>
-</template>
-
-<style scoped>
-div[class] {
-  width: 15;
-  height: 10;
-  display: flex;
-  margin-top: 1;
-}
-.nowrap { flex-wrap: nowrap; }
-.wrap { flex-wrap: wrap; }
-
-.item { width: 8; height: 2; background: blue; }
-</style>
-```
 
 **Tests:**
 - [ ] `flex-wrap: nowrap` — children don't wrap (truncate if needed)
@@ -624,38 +595,6 @@ div[class] {
 - [ ] `flex-wrap: wrap-reverse` — children wrap upward
 
 ### 8.5 Gap / Row Gap / Column Gap
-
-```vue
-<!-- tests/integration/flexbox/gap.vue -->
-<template>
-  <div class="row-gap">
-    <div class="item">A</div>
-    <div class="item">B</div>
-  </div>
-  <div class="col-gap">
-    <div class="item">A</div>
-    <div class="item">B</div>
-  </div>
-</template>
-
-<style scoped>
-.row-gap {
-  display: flex;
-  width: 30;
-  height: 10;
-  gap: 2;
-}
-.col-gap {
-  display: flex;
-  flex-direction: column;
-  width: 10;
-  height: 10;
-  gap: 1;
-}
-
-.item { width: 10; height: 3; background: blue; }
-</style>
-```
 
 **Tests:**
 - [ ] `gap: 2` adds space between all items
@@ -704,11 +643,11 @@ div[class] {
 ### 9.2 Flex Grow / Shrink / Basis
 
 **Tests:**
-- [ ] `flex-grow: 2` distributes extra space
-- [ ] `flex-shrink: 0` prevents shrinking
-- [ ] `flex-basis: 0` sizes to grow allocation
-- [ ] `flex-basis: 50%` sizes to percentage
-- [ ] `flex-basis: 10` sizes to fixed
+- [x] `flex-grow: 2` distributes extra space
+- [x] `flex-shrink: 0` prevents shrinking
+- [x] `flex-basis: 0` sizes to grow allocation
+- [x] `flex-basis: 50%` sizes to percentage
+- [x] `flex-basis: 10` sizes to fixed
 
 ### 9.3 Align Self
 
@@ -735,10 +674,10 @@ div[class] {
 ```
 
 **Tests:**
-- [ ] `align-self: flex-start` overrides container
-- [ ] `align-self: flex-end` overrides container
-- [ ] `align-self: center` overrides container
-- [ ] `align-self: stretch` overrides container
+- [x] `align-self: flex-start` overrides container
+- [x] `align-self: flex-end` overrides container
+- [x] `align-self: center` overrides container
+- [x] `align-self: stretch` overrides container
 
 ---
 
@@ -764,9 +703,9 @@ div[class] {
 ```
 
 **Tests:**
-- [ ] `position: relative` is default
-- [ ] `top`, `left`, `right`, `bottom` offsets applied correctly
-- [ ] Relative positioning doesn't affect siblings
+- [x] `position: relative` is default
+- [x] `top`, `left`, `right`, `bottom` offsets applied correctly
+- [x] Relative positioning doesn't affect siblings
 
 ### 10.2 Absolute Positioning
 
@@ -802,14 +741,14 @@ div[class] {
 ```
 
 **Tests:**
-- [ ] `position: absolute` removes from flow
-- [ ] `top: N` positions from top of container
-- [ ] `left: N` positions from left of container
-- [ ] `right: N` positions from right of container
-- [ ] `bottom: N` positions from bottom of container
-- [ ] Absolute element positioned relative to nearest positioned ancestor
-- [ ] Siblings unaffected by absolute element
-- [ ] Absolute element renders on top of flow
+- [x] `position: absolute` removes from flow
+- [x] `top: N` positions from top of container
+- [x] `left: N` positions from left of container
+- [x] `right: N` positions from right of container
+- [x] `bottom: N` positions from bottom of container
+- [x] Absolute element positioned relative to nearest positioned ancestor
+- [x] Siblings unaffected by absolute element
+- [x] Absolute element renders on top of flow
 
 ---
 
@@ -839,9 +778,9 @@ p { width: 20; height: 1; }
 ```
 
 **Tests:**
-- [ ] `overflow: hidden` clips content at boundary
-- [ ] No scrollbar rendered
-- [ ] Content beyond height not visible
+- [x] `overflow: hidden` clips content at boundary
+- [x] No scrollbar rendered
+- [x] Content beyond height not visible
 
 ### 11.2 Overflow: Scroll / Auto
 
@@ -909,9 +848,9 @@ const isHovered = ref(false)
 ```
 
 **Tests:**
-- [ ] `:hover` styles apply when mouse over
-- [ ] `:hover` styles remove when mouse leaves
-- [ ] `:hover` doesn't affect siblings
+- [x] `:hover` styles apply when mouse over
+- [x] `:hover` styles remove when mouse leaves
+- [x] `:hover` doesn't affect siblings
 
 ### 12.2 Focus State
 
@@ -934,15 +873,15 @@ const isHovered = ref(false)
 ```
 
 **Tests:**
-- [ ] `:focus` styles apply to focused element
-- [ ] `:focus` styles remove when focus lost
-- [ ] Only one element focused at a time
+- [x] `:focus` styles apply to focused element
+- [x] `:focus` styles remove when focus lost
+- [x] Only one element focused at a time
 
 ### 12.3 Active State
 
 **Tests:**
-- [ ] `:active` styles apply while pressed
-- [ ] `:active` styles remove on release
+- [x] `:active` styles apply while pressed
+- [x] `:active` styles remove on release
 
 ---
 
@@ -977,8 +916,8 @@ const isHovered = ref(false)
 ```
 
 **Tests:**
-- [ ] Nested selectors expand correctly
-- [ ] Child selector inherits parent context
+- [x] Nested selectors expand correctly
+- [x] Child selector inherits parent context
 
 ### 13.2 Parent Reference (`&`)
 
@@ -1006,8 +945,8 @@ button {
 ```
 
 **Tests:**
-- [ ] `&:hover` expands to `button:hover`
-- [ ] `&.class` expands to `button.class`
+- [x] `&:hover` expands to `button:hover`
+- [x] `&.class` expands to `button.class`
 
 ---
 
@@ -1040,10 +979,10 @@ footer { width: 80; height: 2; background: red; }
 ```
 
 **Tests:**
-- [ ] Each element renders as block container
-- [ ] No UA styles applied
-- [ ] Can nest arbitrarily
-- [ ] All behave identically to `div`
+- [x] Each element renders as block container
+- [x] No UA styles applied
+- [x] Can nest arbitrarily
+- [x] All behave identically to `div`
 
 ### 14.2 Heading Elements
 
@@ -1065,9 +1004,9 @@ h3 { font-weight: bold; width: 30; height: 1; }
 ```
 
 **Tests:**
-- [ ] Each heading renders text correctly
-- [ ] No UA bold (user must apply CSS)
-- [ ] All h1-h6 behave identically without CSS
+- [x] Each heading renders text correctly
+- [x] No UA bold (user must apply CSS)
+- [x] All h1-h6 behave identically without CSS
 
 ### 14.3 Paragraph Elements
 
@@ -1088,10 +1027,10 @@ pre { width: 40; height: 1; }
 ```
 
 **Tests:**
-- [ ] `p` renders text content
-- [ ] `p` has block layout
-- [ ] `pre` renders same as `p`
-- [ ] Whitespace in `pre` NOT preserved (limitation)
+- [x] `p` renders text content
+- [x] `p` has block layout
+- [x] `pre` renders same as `p`
+- [x] Whitespace in `pre` NOT preserved (limitation)
 
 ### 14.4 List Elements
 
@@ -1117,11 +1056,11 @@ li { width: 20; height: 1; padding: 1; }
 ```
 
 **Tests:**
-- [ ] `li` renders text content
-- [ ] `li` items stack vertically
-- [ ] No bullet characters (must add via CSS)
-- [ ] No auto-numbering (must add via CSS)
-- [ ] `ul` and `ol` behave identically
+- [x] `li` renders text content
+- [x] `li` items stack vertically
+- [x] No bullet characters (must add via CSS)
+- [x] No auto-numbering (must add via CSS)
+- [x] `ul` and `ol` behave identically
 
 ### 14.5 Anchor Element
 
@@ -1144,11 +1083,11 @@ a:hover {
 ```
 
 **Tests:**
-- [ ] `a` renders text content
-- [ ] UA `color: cyan` applied by default
-- [ ] UA `underline: true` applied by default
-- [ ] User `color` overrides UA
-- [ ] `href` attribute ignored (no navigation)
+- [x] `a` renders text content
+- [x] UA `color: cyan` applied by default
+- [x] UA `underline: true` applied by default
+- [x] User `color` overrides UA
+- [x] `href` attribute ignored (no navigation)
 
 ### 14.6 Button Element
 
@@ -1184,12 +1123,12 @@ button:focus {
 ```
 
 **Tests:**
-- [ ] `button` renders text content
-- [ ] UA `background: blue` applied by default
-- [ ] User `background` overrides UA
-- [ ] User `color` applies to text
-- [ ] Button can contain child elements
-- [ ] `@press` handler fires (interaction test)
+- [x] `button` renders text content
+- [x] UA `background: blue` applied by default
+- [x] User `background` overrides UA
+- [x] User `color` applies to text
+- [x] Button can contain child elements
+- [x] `@press` handler fires (interaction test)
 
 ### 14.7 Input Element
 
@@ -1222,17 +1161,17 @@ input {
 ```
 
 **Tests:**
-- [ ] `input` renders with placeholder when empty
-- [ ] UA `background: grey` applied
-- [ ] User `background` overrides UA
-- [ ] Text input renders correctly
-- [ ] Text longer than width scrolls/clips
-- [ ] Cursor renders at correct position
-- [ ] Printable keys insert text
-- [ ] Backspace/delete remove text
-- [ ] Arrow keys move cursor
-- [ ] Home/end move cursor to bounds
-- [ ] `@change` fires on enter
+- [x] `input` renders with placeholder when empty
+- [x] UA `background: grey` applied
+- [x] User `background` overrides UA
+- [x] Text input renders correctly
+- [x] Text longer than width scrolls/clips
+- [x] Cursor renders at correct position
+- [x] Printable keys insert text
+- [x] Backspace/delete remove text
+- [x] Arrow keys move cursor
+- [x] Home/end move cursor to bounds
+- [x] `@change` fires on enter
 
 ### 14.8 Textarea Element
 
@@ -1264,16 +1203,16 @@ textarea {
 ```
 
 **Tests:**
-- [ ] `textarea` renders multiline text
-- [ ] UA `background: grey` applied
-- [ ] First line at top
-- [ ] Multiple lines render vertically
-- [ ] Lines clip at width
-- [ ] Content taller than height scrolls
-- [ ] Cursor position correct
-- [ ] Enter inserts newline
-- [ ] Arrow keys navigate correctly
-- [ ] `@change` fires
+- [x] `textarea` renders multiline text
+- [x] UA `background: grey` applied
+- [x] First line at top
+- [x] Multiple lines render vertically
+- [x] Lines clip at width
+- [x] Content taller than height scrolls
+- [x] Cursor position correct
+- [x] Enter inserts newline
+- [x] Arrow keys navigate correctly
+- [x] `@change` fires
 
 ### 14.9 Code Element
 
@@ -1347,11 +1286,11 @@ code {
 ```
 
 **Tests:**
-- [ ] Sidebar fixed width
-- [ ] Content fills remaining width (flex)
-- [ ] Each portion scrollable independently
-- [ ] Text positions correct in each section
-- [ ] Borders don't overlap
+- [x] Sidebar fixed width
+- [x] Content fills remaining width (flex)
+- [x] Each portion scrollable independently
+- [x] Text positions correct in each section
+- [x] Borders don't overlap
 
 ### 15.2 Grid-Like Layout
 
@@ -1435,16 +1374,16 @@ code {
 ```
 
 **Tests:**
-- [ ] Empty container with background fills area
-- [ ] Border renders even with no content
-- [ ] Padding still applies
+- [x] Empty container with background fills area
+- [x] Border renders even with no content
+- [x] Padding still applies
 
 ### 16.2 Zero Dimensions
 
 **Tests:**
-- [ ] `width: 0; height: 0` → invisible
-- [ ] `width: 0` → single-column width (at least border)
-- [ ] `height: 0` → single-row height (at least border)
+- [x] `width: 0; height: 0` → invisible
+- [x] `width: 0` → single-column width (at least border)
+- [x] `height: 0` → single-row height (at least border)
 
 ### 16.3 Negative Margins
 
@@ -1462,15 +1401,15 @@ code {
 ```
 
 **Tests:**
-- [ ] Negative margin pulls element up/left
-- [ ] Overlapping elements render last-wins
+- [x] Negative margin pulls element up/left
+- [x] Overlapping elements render last-wins
 
 ### 16.4 Fractional Values
 
 **Tests:**
-- [ ] `width: 10.7` → rounded to 11
-- [ ] `height: 5.3` → rounded to 5
-- [ ] Flex basis with fractions
+- [x] `width: 10.7` → rounded to 11
+- [x] `height: 5.3` → rounded to 5
+- [x] Flex basis with fractions
 
 ### 16.5 Very Long Text
 
@@ -1488,16 +1427,16 @@ code {
 ```
 
 **Tests:**
-- [ ] Text clips at right edge
-- [ ] No wrapping (hard clip)
-- [ ] No overflow markers
+- [x] Text clips at right edge
+- [x] No wrapping (hard clip)
+- [x] No overflow markers
 
 ### 16.6 Whitespace Handling
 
 **Tests:**
-- [ ] Multiple spaces rendered as-is (no collapsing)
-- [ ] Leading/trailing spaces preserved
-- [ ] Tabs rendered as single character
+- [x] Multiple spaces rendered as-is (no collapsing)
+- [x] Leading/trailing spaces preserved
+- [x] Tabs rendered as single character
 
 ### 16.7 Unicode Characters
 
@@ -1513,9 +1452,9 @@ div { width: 50; height: 1; }
 ```
 
 **Tests:**
-- [ ] Unicode renders (if terminal supports)
-- [ ] Multi-byte chars positioned correctly
-- [ ] Box-drawing chars render in borders
+- [x] Unicode renders (if terminal supports)
+- [x] Multi-byte chars positioned correctly
+- [x] Box-drawing chars render in borders
 
 ---
 
@@ -1542,8 +1481,8 @@ div { width: 10; height: 1; background: blue; }
 ```
 
 **Tests:**
-- [ ] `visibility: hidden` → invisible but takes space
-- [ ] `display: none` → invisible and takes no space
+- [x] `visibility: hidden` → invisible but takes space
+- [x] `display: none` → invisible and takes no space
 
 ### 17.2 Z-Index Stacking
 
@@ -1563,9 +1502,9 @@ div { width: 10; height: 1; background: blue; }
 ```
 
 **Tests:**
-- [ ] Higher z-index renders on top
-- [ ] Same z-index: last in tree order wins
-- [ ] Negative z-index behind flow content
+- [x] Higher z-index renders on top
+- [x] Same z-index: last in tree order wins
+- [x] Negative z-index behind flow content
 
 ---
 
@@ -1593,11 +1532,11 @@ div { width: 20; height: 1; background: green; }
 ```
 
 **Tests:**
-- [ ] `ref()` bindings update render
-- [ ] Template expressions evaluate
-- [ ] Conditional rendering (v-if)
-- [ ] Event handlers fire and update state
-- [ ] Computed properties work
+- [x] `ref()` bindings update render
+- [x] Template expressions evaluate
+- [x] Conditional rendering (v-if)
+- [x] Event handlers fire and update state
+- [x] Computed properties work
 
 ### 18.2 List Rendering
 
@@ -1627,10 +1566,10 @@ const items = ref([
 ```
 
 **Tests:**
-- [ ] `v-for` renders list items
-- [ ] Items stack vertically
-- [ ] Key prop works
-- [ ] List updates reactively
+- [x] `v-for` renders list items
+- [x] Items stack vertically
+- [x] Key prop works
+- [x] List updates reactively
 
 ### 18.3 V-Model
 
@@ -1653,9 +1592,9 @@ p { width: 30; height: 1; }
 ```
 
 **Tests:**
-- [ ] `v-model` binds input value
-- [ ] Input changes update binding
-- [ ] Binding changes update input
+- [x] `v-model` binds input value
+- [x] Input changes update binding
+- [x] Binding changes update input
 
 ### 18.4 Slots & Components
 
@@ -1700,9 +1639,9 @@ defineProps({
 ```
 
 **Tests:**
-- [ ] Props pass through
-- [ ] Slots render child content
-- [ ] Nested components position correctly
+- [x] Props pass through
+- [x] Slots render child content
+- [x] Nested components position correctly
 
 ---
 
@@ -1719,16 +1658,16 @@ Tests for state management bindings.
 ### 19.3 Keyboard Shortcuts
 
 **Tests:**
-- [ ] `useKeys()` shortcut binding
-- [ ] Multiple shortcuts per component
-- [ ] Shortcut modifiers (Shift, Ctrl)
+- [x] `useKeys()` shortcut binding
+- [x] Multiple shortcuts per component
+- [x] Shortcut modifiers (Shift, Ctrl)
 
 ### 19.4 Screen Resize Handling
 
 **Tests:**
-- [ ] Layout reflows on terminal resize
-- [ ] Elements maintain proportions
-- [ ] Text clipping adjusts
+- [x] Layout reflows on terminal resize
+- [x] Elements maintain proportions
+- [x] Text clipping adjusts
 
 ---
 
