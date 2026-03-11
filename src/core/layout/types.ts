@@ -249,6 +249,9 @@ export interface LayoutNode {
     // Stacking context information (set by buildStackingContextTree)
     createsStackingContext: boolean // Does this node create a new stacking context?
 
+    // Original content before text wrapping (used to re-wrap on resize)
+    _originalContent?: string
+
     // Interactive element state (for input/textarea nodes)
     _inputValue?: string
     _cursorPos?: number

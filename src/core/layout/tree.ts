@@ -683,13 +683,20 @@ export class LayoutEngine {
             return 0
         }
 
+        // Always wrap from the original content (before any previous wrapping).
+        // node.content is mutated each render, so we preserve the original separately.
+        if (node._originalContent === undefined) {
+            node._originalContent = node.content
+        }
+        const originalContent = node._originalContent
+
         const whiteSpace = node.layoutProps.whiteSpace ?? 'normal'
 
-        // For terminal rendering, if content already has explicit newlines,
+        // For terminal rendering, if original content has explicit newlines,
         // preserve them and only wrap each line individually (don't collapse them)
-        if (node.content.includes('\n')) {
+        if (originalContent.includes('\n')) {
             // Split by newlines, wrap each line separately, rejoin
-            const lines = node.content.split('\n')
+            const lines = originalContent.split('\n')
             const wrappedAll: string[] = []
             for (const line of lines) {
                 const wrappedLines = wrapText(line, contentWidth, 'pre-line')
@@ -700,7 +707,7 @@ export class LayoutEngine {
         }
 
         // No explicit newlines: apply full text wrapping with white-space semantics
-        const wrappedLines = wrapText(node.content, contentWidth, whiteSpace)
+        const wrappedLines = wrapText(originalContent, contentWidth, whiteSpace)
         node.content = wrappedLines.join('\n')
         return wrappedLines.length
     }
@@ -756,7 +763,12 @@ export class LayoutEngine {
             node.type !== 'pre'
 
         if (shouldWrap) {
-            const contentWidth = width - border.width * 2
+            // For text nodes, width = content.length (intrinsic), so use containerWidth as the
+            // available wrap width. For element nodes, subtract padding + border from own width.
+            const borderOffset = border.width > 0 ? 1 : 0
+            const contentWidth = node.type === 'text'
+                ? containerWidth
+                : Math.max(0, width - padding.left - padding.right - borderOffset * 2)
             const wrappedLineCount = this.applyTextWrapping(node, contentWidth)
             // If height was not explicitly set, update it based on wrapped content
             if (!layoutProps.height && wrappedLineCount > 0) {

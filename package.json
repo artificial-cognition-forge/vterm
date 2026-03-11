@@ -24,7 +24,8 @@
         }
     },
     "files": [
-        "src"
+        "src",
+        "apps"
     ],
     "scripts": {
         "dev": "bun run src/index.ts"

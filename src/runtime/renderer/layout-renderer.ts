@@ -297,6 +297,7 @@ export function createLayoutRenderer(
         setElementText(node, text) {
             // Set text content on the node
             node.content = text
+            node._originalContent = undefined
             notifyUpdate()
         },
 
@@ -343,6 +344,7 @@ export function createLayoutRenderer(
             if (key === "content") {
                 node.content =
                     nextValue !== null && nextValue !== undefined ? String(nextValue) : null
+                node._originalContent = undefined
                 return
             }
 
@@ -385,6 +387,7 @@ export function createLayoutRenderer(
 
         setText(node, text) {
             node.content = text
+            node._originalContent = undefined
             notifyUpdate()
         },
 
