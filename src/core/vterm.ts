@@ -48,14 +48,22 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     // Initialize driver (raw mode, alternate screen, etc.)
     driver.initialize()
 
-    // Initialize interaction manager
-    const interactionManager = new InteractionManager(() => {
-        // Trigger re-render when interactive state changes (hover, focus, active)
-        // Use performLayout (not just performRender) so cursor position is updated on focus changes
-        if (currentLayoutRoot) {
-            performLayout(currentLayoutRoot)
+    // Initialize interaction manager with both state change and render callbacks
+    const interactionManager = new InteractionManager(
+        () => {
+            // Trigger re-render when interactive state changes (hover, focus, active)
+            // Use performLayout (not just performRender) so cursor position is updated on focus changes
+            if (currentLayoutRoot) {
+                performLayout(currentLayoutRoot)
+            }
+        },
+        () => {
+            // Trigger render when element behavior changes state
+            if (currentLayoutRoot) {
+                performLayout(currentLayoutRoot)
+            }
         }
-    })
+    )
 
     // Initialize selection manager
     const selectionManager = new SelectionManager(() => {

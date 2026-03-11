@@ -281,4 +281,40 @@ const inputBehavior: ElementBehavior = {
     },
 }
 
+/**
+ * Helper function to determine cursor position from click coordinates
+ */
+function getCursorPosFromClick(node: LayoutNode, clickX: number): number {
+    const value = getValue(node)
+    const layout = node.layout
+    if (!layout) return value.length
+
+    const border = layout.border.width
+    const padding = layout.padding
+    const contentX = layout.x + border + padding.left
+    const contentWidth = layout.width - 2 * border - padding.left - padding.right
+
+    if (contentWidth <= 0) return value.length
+
+    const cursorPos = node._cursorPos ?? value.length
+    const scrollOffset = Math.max(0, cursorPos - contentWidth + 1)
+
+    // Calculate which character was clicked
+    const relativeX = clickX - contentX
+    if (relativeX < 0) return scrollOffset
+    if (relativeX >= contentWidth) return Math.min(scrollOffset + contentWidth, value.length)
+
+    return Math.min(scrollOffset + relativeX, value.length)
+}
+
+// Add mousedown handler
+inputBehavior.handleMouseDown = (node: LayoutNode, event: any, requestRender: () => void): void => {
+    ensureState(node)
+    const newPos = getCursorPosFromClick(node, event.x)
+    node._cursorPos = newPos
+    node._selectionStart = newPos
+    node._selectionEnd = newPos
+    requestRender()
+}
+
 registerElement('input', inputBehavior)

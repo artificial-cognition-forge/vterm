@@ -12,6 +12,7 @@ import type { LayoutNode } from "../../core/layout/types"
 import { isScrollableNode } from "../../core/layout/utils"
 import type { MouseEvent } from "../terminal/input"
 import { getGlobalRouter } from "../../core/router/router"
+import { getElement } from "../elements/index"
 import { spawn } from "child_process"
 
 /**
@@ -32,9 +33,11 @@ export class InteractionManager {
     private activeNode: LayoutNode | null = null
     private focusableNodes: LayoutNode[] = []
     private stateChangeCallback?: () => void
+    private renderCallback?: () => void
 
-    constructor(onStateChange?: () => void) {
+    constructor(onStateChange?: () => void, onRender?: () => void) {
         this.stateChangeCallback = onStateChange
+        this.renderCallback = onRender
     }
 
     /**
@@ -254,6 +257,12 @@ export class InteractionManager {
         // Set active state
         this.activeNode = targetNode
         this.notifyStateChange()
+
+        // Call element behavior handler (for input/textarea cursor positioning, etc.)
+        const behavior = getElement(targetNode.type)
+        if (behavior?.handleMouseDown) {
+            behavior.handleMouseDown(targetNode, event, () => this.renderCallback?.())
+        }
 
         // Fire mousedown event
         const mousedownHandler = targetNode.events.get("mousedown")

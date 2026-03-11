@@ -1,6 +1,6 @@
 import type { LayoutNode } from '../../core/layout/types'
 import type { ScreenBuffer, Cell } from '../terminal/buffer'
-import type { KeyEvent } from '../terminal/input'
+import type { KeyEvent, MouseEvent } from '../terminal/input'
 
 /** Axis-aligned rectangle used to clip rendering to a parent's visible area */
 export interface ClipBox {
@@ -35,6 +35,12 @@ export interface ElementBehavior {
      * Call requestRender() after mutating node state to schedule a re-layout.
      */
     handleKey?(node: LayoutNode, key: KeyEvent, requestRender: () => void): void
+
+    /**
+     * Handle a mouse down event on this element.
+     * Call requestRender() after mutating node state to schedule a re-layout.
+     */
+    handleMouseDown?(node: LayoutNode, event: MouseEvent, requestRender: () => void): void
 
     /**
      * Render the element's content into the buffer.

@@ -522,4 +522,58 @@ const textareaBehavior: ElementBehavior = {
     },
 }
 
+/**
+ * Helper function to determine cursor position from click coordinates in textarea
+ */
+function getCursorPosFromClickTextarea(node: LayoutNode, clickX: number, clickY: number): number {
+    const value = getValue(node)
+    const layout = node.layout
+    if (!layout) return value.length
+
+    const border = layout.border.width
+    const padding = layout.padding
+    const contentX = layout.x + border + padding.left
+    const contentY = layout.y + border + padding.top
+    const contentWidth = layout.width - 2 * border - padding.left - padding.right
+    const contentHeight = layout.height - 2 * border - padding.top - padding.bottom
+
+    if (contentWidth <= 0 || contentHeight <= 0) return value.length
+
+    // Build visual lines
+    const visualLines = buildVisualLines(value, contentWidth)
+
+    // Calculate scroll offset
+    const cursorPos = node._cursorPos ?? value.length
+    const { vLine: cursorVLine } = getVisualPos(visualLines, cursorPos)
+    let scrollY = node.scrollY ?? 0
+
+    // Determine which visual line was clicked
+    const relativeY = clickY - contentY
+    if (relativeY < 0) return 0
+    if (relativeY >= contentHeight) return value.length
+
+    const clickedVLine = scrollY + Math.floor(relativeY)
+    if (clickedVLine >= visualLines.length) return value.length
+
+    const vl = visualLines[clickedVLine]
+    if (!vl) return value.length
+
+    // Determine which character in that line was clicked
+    const relativeX = clickX - contentX
+    if (relativeX < 0) return vl.startPos
+    if (relativeX >= vl.text.length) return vl.startPos + vl.text.length
+
+    return vl.startPos + Math.floor(relativeX)
+}
+
+// Add mousedown handler
+textareaBehavior.handleMouseDown = (node: LayoutNode, event: any, requestRender: () => void): void => {
+    ensureState(node)
+    const newPos = getCursorPosFromClickTextarea(node, event.x, event.y)
+    node._cursorPos = newPos
+    node._selectionStart = newPos
+    node._selectionEnd = newPos
+    requestRender()
+}
+
 registerElement('textarea', textareaBehavior)
