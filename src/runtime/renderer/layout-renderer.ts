@@ -426,3 +426,60 @@ export function createLayoutRenderer(
 
     return renderer
 }
+
+/**
+ * Apply compound (descendant) selector styles to the assembled layout tree.
+ *
+ * `patchProp` runs before a node is inserted, so it has no ancestor context and
+ * cannot match selectors like `.parent .child`. This function does a top-down
+ * walk after the tree is fully assembled, collecting ancestor classes and
+ * applying any matching compound selectors. Call it once per frame just before
+ * layout computation.
+ */
+export function applyCompoundStyles(root: LayoutNode, styles: ParsedStyles): void {
+    // Build an index: last-class → [{parts, style}] for all compound selectors
+    const index = new Map<string, Array<{ parts: string[]; style: LayoutProperties }>>()
+    for (const [selector, style] of Object.entries(styles)) {
+        if (!selector.includes(" ")) continue
+        const parts = selector.split(/\s+/)
+        const lastPart = parts[parts.length - 1]!
+        const className = lastPart.startsWith(".") ? lastPart.slice(1) : lastPart
+        if (!index.has(className)) index.set(className, [])
+        index.get(className)!.push({ parts, style })
+    }
+    if (index.size === 0) return
+
+    function walk(node: LayoutNode, ancestorClasses: string[]): void {
+        const classNames: string[] = node.props.class
+            ? Array.isArray(node.props.class)
+                ? node.props.class
+                : String(node.props.class).split(" ").filter(Boolean)
+            : []
+
+        for (const className of classNames) {
+            const candidates = index.get(className)
+            if (!candidates) continue
+            for (const { parts, style } of candidates) {
+                const precedingParts = parts.slice(0, -1)
+                const allMatch = precedingParts.every(part => {
+                    const partClass = part.startsWith(".") ? part.slice(1) : part
+                    return ancestorClasses.includes(partClass)
+                })
+                if (!allMatch) continue
+                const { visualStyles, hover, focus, active, ...otherProps } = style as any
+                Object.assign(node.layoutProps, otherProps)
+                if (visualStyles) Object.assign(node.style, visualStyles)
+                if (hover) node.style.hover = { ...(node.style.hover || {}), ...(hover.visualStyles || hover) }
+                if (focus) node.style.focus = { ...(node.style.focus || {}), ...(focus.visualStyles || focus) }
+                if (active) node.style.active = { ...(node.style.active || {}), ...(active.visualStyles || active) }
+            }
+        }
+
+        const childAncestors = classNames.length > 0 ? [...ancestorClasses, ...classNames] : ancestorClasses
+        for (const child of node.children) {
+            walk(child, childAncestors)
+        }
+    }
+
+    walk(root, [])
+}

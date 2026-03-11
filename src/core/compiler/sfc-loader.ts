@@ -317,6 +317,7 @@ export async function loadSFC(filepath: string): Promise<any> {
         const styleBlocks = descriptor.styles.map(s => ({
             content: s.content,
             scoped: s.scoped,
+            lang: s.lang ?? undefined,
         }))
 
         const parsedStyles = await extractSFCStyles(styleBlocks)

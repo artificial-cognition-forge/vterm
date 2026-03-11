@@ -336,14 +336,28 @@ export class InteractionManager {
     }
 
     /**
-     * Get the interactive state for a node
+     * Get the interactive state for a node.
+     * hover is true if the node itself is hovered OR any of its descendants are —
+     * matching CSS behaviour where :hover propagates up the ancestor chain.
      */
     getState(node: LayoutNode): InteractiveState {
         return {
-            hover: this.hoveredNode === node,
+            hover: this.hoveredNode === node || this.isAncestorOfHovered(node),
             focus: this.focusedNode === node,
             active: this.activeNode === node,
         }
+    }
+
+    /**
+     * Returns true if node is an ancestor of the currently hovered node.
+     */
+    private isAncestorOfHovered(node: LayoutNode): boolean {
+        let current = this.hoveredNode?.parent ?? null
+        while (current) {
+            if (current === node) return true
+            current = current.parent
+        }
+        return false
     }
 
     /**

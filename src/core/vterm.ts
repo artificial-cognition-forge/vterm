@@ -14,7 +14,7 @@ import { InputParser, type KeyEvent } from "../runtime/terminal/input"
 import { BufferRenderer } from "../runtime/renderer/buffer-renderer"
 import { InteractionManager } from "../runtime/renderer/interaction"
 import { SelectionManager } from "../runtime/renderer/selection"
-import { createLayoutRenderer, createLayoutNodeElement } from "../runtime/renderer/layout-renderer"
+import { createLayoutRenderer, createLayoutNodeElement, applyCompoundStyles } from "../runtime/renderer/layout-renderer"
 import { createLayoutEngine } from "./layout/tree"
 import { loadSFC, getAllStyles, registerRenderCallback } from "./compiler/sfc-loader"
 import { ScreenSymbol, RenderSymbol, InteractionSymbol } from "./platform/composables/exports"
@@ -302,6 +302,10 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     // Function to perform layout computation and rendering
     const performLayout = (layoutRoot: LayoutNode) => {
         try {
+            // Apply compound (descendant) selector styles now that the tree is assembled.
+            // patchProp runs before insert so has no ancestor context; this pass fills the gap.
+            applyCompoundStyles(layoutRoot, allStyles)
+
             // Compute layout for the tree
             layoutEngine.computeLayout(layoutRoot)
 

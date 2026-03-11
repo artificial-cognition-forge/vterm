@@ -1,12 +1,12 @@
 import { ref, computed } from "@arcforge/vterm"
 
 type SidebarState = {
-    page: "html" | "css"
+    page: "html" | "css" | "vue"
 }
 
 export function useSidebar() {
     const state = ref<SidebarState>({
-        page: "css"
+        page: "html"
     })
 
     return {

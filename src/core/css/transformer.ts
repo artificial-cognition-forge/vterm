@@ -1,5 +1,6 @@
 import postcss from 'postcss'
 import nested from 'postcss-nested'
+import * as sass from 'sass'
 import type { ParsedStyles } from './types'
 import type { LayoutProperties } from '../layout/types'
 import { transformDeclaration } from './declaration-transformer'
@@ -86,12 +87,17 @@ export const transformCSSToBlessed = transformCSSToLayout
  * Extract and compile styles from a Vue SFC descriptor
  */
 export async function extractSFCStyles(
-  styleBlocks: Array<{ content: string; scoped?: boolean }>
+  styleBlocks: Array<{ content: string; scoped?: boolean; lang?: string }>
 ): Promise<ParsedStyles> {
   let allStyles: ParsedStyles = {}
 
   for (const block of styleBlocks) {
-    const styles = await transformCSSToLayout(block.content)
+    let css = block.content
+    if (block.lang === 'scss' || block.lang === 'sass') {
+      const result = sass.compileString(css, { syntax: block.lang === 'sass' ? 'indented' : 'scss' })
+      css = result.css
+    }
+    const styles = await transformCSSToLayout(css)
 
     // Note: We're ignoring the 'scoped' attribute for now since blessed doesn't
     // support adding data attributes to elements like Vue does in the DOM.

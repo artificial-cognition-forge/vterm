@@ -344,16 +344,90 @@ Use `app/app.vue` as a layout wrapper with `<RouterView />` to share chrome acro
 ## Rendering Pipeline
 
 ```
-1. Layout Renderer  — Vue component tree → LayoutNodes (via custom Vue renderer)
-2. Layout Engine    — Compute positions/dimensions (flexbox, box model)
-3. Buffer Renderer  — LayoutNodes → ScreenBuffer (character grid)
-4. Frame Differ     — Diff previous/current buffer → minimal ANSI codes
-5. Terminal Driver  — Write ANSI escape codes to stdout
+.vue file
+  → sfc-loader        compile SFC into Vue VNodes
+  → layout-renderer   Vue VNode tree → LayoutNode tree (custom Vue renderer)
+  → tree.ts           resolve CSS, build LayoutNode structure
+  → rendering-pass    paint LayoutNodes to ScreenBuffer (two passes: background then text)
+  → differ            diff previous/current ScreenBuffer → minimal ANSI sequences
+  → driver            write ANSI to stdout
 ```
 
 - Layout engine is platform-agnostic and fully unit testable
 - Render is throttled by `renderInterval` (default 100ms); bypass with `useRender()`
 - Terminal resizes trigger automatic reflow
+
+## Pipeline Navigation
+
+Where each stage lives. When a bug appears, start here:
+
+```
+src/
+├── core/
+│   ├── compiler/
+│   │   └── sfc-loader.ts              Compile .vue files into VNodes
+│   ├── css/
+│   │   ├── transformer.ts             CSS string → LayoutProperties + VisualStyle
+│   │   └── declaration-transformer.ts Per-property parsing (colors, flex, border…)
+│   ├── layout/
+│   │   ├── types.ts                 ★ Central types: LayoutNode, VisualStyle, LayoutProperties
+│   │   ├── tree.ts                    VNode tree → LayoutNode tree (CSS resolved here)
+│   │   ├── flexbox.ts                 Flex layout algorithm
+│   │   ├── box-model.ts               Padding / margin / border computation
+│   │   └── stacking-context.ts        Z-index render ordering
+│   └── vterm.ts                       Runtime entry — wires the render loop together
+│
+└── runtime/
+    ├── renderer/
+    │   ├── layout-renderer.ts         Custom Vue renderer → LayoutNodes
+    │   ├── rendering-pass.ts        ★ Two-pass paint: LayoutNodes → ScreenBuffer
+    │   ├── buffer-renderer.ts         Public API that drives RenderingPass
+    │   └── interaction.ts             Hit testing, focus, scroll, click/anchor routing
+    ├── elements/
+    │   ├── registry.ts                Element behavior registry (lookup by tag name)
+    │   ├── input.ts                   <input> rendering + key handling
+    │   ├── textarea.ts                <textarea> rendering + key handling
+    │   ├── anchor.ts                  <a> keyboard navigation + external URL opening
+    │   └── code.ts                    <code> syntax highlighting
+    └── terminal/
+        ├── buffer.ts                  ScreenBuffer — character grid with per-cell styles
+        ├── differ.ts                  Diff two buffers → minimal ANSI escape sequences
+        ├── driver.ts                  Write ANSI to stdout, handle terminal input
+        └── input.ts                   Parse raw terminal key and mouse sequences
+```
+
+`★` = most relevant when debugging rendering or style behaviour.
+
+### Test Locations
+
+```
+src/core/css/transformer.test.ts       CSS property parsing (unit)
+src/core/layout/*.test.ts              Layout engine: flex, box model, tree (unit)
+src/runtime/renderer/buffer-renderer.test.ts  Visual output correctness (unit)
+
+tests/
+├── css-compliance/    End-to-end CSS property coverage  (read spec.md first)
+├── html-compliance/   Element UA styles and behaviour    (read spec.md first)
+├── render-correctness/ Visual output scenarios           (read spec.md first)
+└── performance/       Pipeline regression benchmarks
+```
+
+## Working in this Codebase
+
+### Bug Fix Workflow
+
+1. **Research first** — read the relevant source and tests before touching anything. Understand which pipeline stage is involved and why the behaviour is wrong.
+2. **Write failing tests** — add tests to the appropriate compliance or unit suite that express correct behaviour. Run them and confirm they fail for the right reason.
+3. **Fix the root cause** — make the tests pass. Never patch around a symptom.
+4. **Run the full suite** — `bun test` must show the same pre-existing failure count. Zero new regressions.
+
+### Code Quality Standards
+
+**No dead code.** If a function, method, import, or constant is unreachable from any live path, remove it in the same pass as your fix. Private methods with no callers, imports that aren't used, and superseded implementations all qualify. The codebase is small enough that dead code is always a liability.
+
+**Raise maintainability issues proactively.** When you identify a shadow implementation, a duplicate rendering path, a leaking abstraction, or a pattern that will silently break for a class of inputs — say so clearly in your report, before or after the fix. The goal is a pipeline that stays comprehensible as it grows, not just one that passes tests today.
+
+**The rendering pipeline is the product.** Hold `src/runtime/renderer/` and `src/core/layout/` to a higher standard than CLI or build code. Confusion or duplication in those files has direct user-facing consequences.
 
 ## Testing
 

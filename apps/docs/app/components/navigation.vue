@@ -5,6 +5,7 @@
         </div>
 
         <div class="right-nav">
+            <button @click="sidebar.state.value.page === 'vue'">VUE</button>
             <button @click="sidebar.state.value.page === 'html'">HTML</button>
             <button @click="sidebar.set('css')">CSS</button>
         </div>
@@ -13,13 +14,14 @@
 
 <script setup lang="ts">
 const sidebar = useSidebar()
-
 </script>
 
-<style lang='scss' scoped>
+<style scoped lang="scss">
 .nav-container {
     display: flex;
+    justify-content: space-between;
     width: 100%;
+    border: 1px solid white;
     gap: 2;
 }
 
@@ -31,6 +33,10 @@ const sidebar = useSidebar()
     display: flex;
     justify-content: flex-end;
     gap: 2;
-    width: 100%;
+    width: 25;
+}
+
+button {
+    width: 10;
 }
 </style>
