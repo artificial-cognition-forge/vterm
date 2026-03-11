@@ -17,6 +17,7 @@ import { getElement } from "../elements/registry"
 import { isScrollableNode } from "../../core/layout/utils"
 import type { InteractionManager } from "./interaction"
 import type { SelectionManager } from "./selection"
+import type { UIConfig } from "../../types/types"
 
 interface ClipBox {
   x: number
@@ -81,6 +82,7 @@ export class RenderingPass {
   private buffer: ScreenBuffer
   private interactionManager?: InteractionManager
   private selectionManager?: SelectionManager
+  private uiConfig?: UIConfig
   private isTextPass: boolean = false
   private borderStringCache = new Map<string, string>()
   private elementBehaviorCache = new Map<string, ReturnType<typeof getElement>>()
@@ -88,11 +90,13 @@ export class RenderingPass {
   constructor(
     buffer: ScreenBuffer,
     interactionManager?: InteractionManager,
-    selectionManager?: SelectionManager
+    selectionManager?: SelectionManager,
+    uiConfig?: UIConfig,
   ) {
     this.buffer = buffer
     this.interactionManager = interactionManager
     this.selectionManager = selectionManager
+    this.uiConfig = uiConfig
   }
 
   /**
@@ -750,19 +754,22 @@ export class RenderingPass {
       dim: false,
     }
 
+    const thumbChar = this.uiConfig?.scrollbar?.thumb ?? '█'
+    const trackChar = this.uiConfig?.scrollbar?.track ?? '│'
+
     // Render scrollbar vertically (one row at a time)
     // Track before thumb
     for (let i = 0; i < thumbPos; i++) {
-      this.buffer.write(x, adjustedY + i, "│", trackStyle)
+      this.buffer.write(x, adjustedY + i, trackChar, trackStyle)
     }
     // Thumb section
     for (let i = 0; i < thumbSize; i++) {
-      this.buffer.write(x, adjustedY + thumbPos + i, "█", thumbStyle)
+      this.buffer.write(x, adjustedY + thumbPos + i, thumbChar, thumbStyle)
     }
     // Track after thumb
     const trackAfter = viewportHeight - thumbPos - thumbSize
     for (let i = 0; i < trackAfter; i++) {
-      this.buffer.write(x, adjustedY + thumbPos + thumbSize + i, "│", trackStyle)
+      this.buffer.write(x, adjustedY + thumbPos + thumbSize + i, trackChar, trackStyle)
     }
   }
 

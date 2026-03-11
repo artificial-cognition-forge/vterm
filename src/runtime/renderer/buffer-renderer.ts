@@ -45,7 +45,7 @@ export class BufferRenderer {
 
         const rootContext = buildStackingContextTree(root)
 
-        const renderPass = new RenderingPass(buffer, this.interactionManager, this.selectionManager)
+        const renderPass = new RenderingPass(buffer, this.interactionManager, this.selectionManager, this.uiConfig)
         renderPass.executeRenderingPasses(rootContext, 0)
 
         this.selectionManager?.applyHighlight(buffer)

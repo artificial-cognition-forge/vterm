@@ -1,11 +1,9 @@
 <template>
     <div class="sidebar">
-        <!-- <a class="logo" href="/">Vterm</a> -->
-
         <div class="links" v-if="sidebar.page.value === 'html'">
             <h2>HTML</h2>
             <a :href="link.url" v-for="link in sidebarHtml.links">
-                <code lang="html">{{ link.name }}</code>
+                <code lang="vue">{{ link.name }}</code>
             </a>
         </div>
 
@@ -39,6 +37,15 @@ const sidebar = useSidebar()
 
 const sidebarVterm= ref({
     links: {
+        config: {
+            name: "<vterm-config />",
+            url: "tag-vterm-config"
+        },
+
+        pages: {
+            name: "<vterm-pages />",
+            url: "tag-vterm-pages"
+        },
     }
 })
 const sidebarVue= ref({
@@ -157,103 +164,109 @@ const sidebarCss = ref({
 const sidebarHtml = ref({
     links: {
         a: {
-            name: "<a/>",
+            name: "<a />",
             hover: "<a />",
             url: "tag-a"
         },
 
         hr: {
-            name: "<hr/>",
+            name: "<hr />",
             hover: "<hr />",
-            url: "tag-div"
+            url: "tag-hr"
         },
         div: {
-            name: "<div/>",
+            name: "<div />",
             hover: "<div />",
             url: "tag-div"
         },
 
+        ascii: {
+            name: "<ascii />",
+            hover: "<ascii />",
+            url: "tag-ascii"
+        },
+
         ul: {
-            name: "<ul/>",
+            name: "<ul />",
             hover: "<ul />",
-            url: "tag-div"
+            url: "tag-ul"
         },
 
         li: {
-            name: "<li/>",
+            name: "<li />",
             hover: "<li />",
-            url: "tag-div"
+            url: "tag-li"
         },
 
         p: {
-            name: "<p/>",
+            name: "<p />",
             hover: "<p />",
-            url: "tag-div"
+            url: "tag-p"
         },
 
         h: {
-            name: "<h1/>",
-            hover: "<h1 />",
-            url: "tag-div"
+            name: "<h1-h6 />",
+            hover: "<h1-h6 />",
+            url: "tag-h1"
         },
 
         nav: {
-            name: "<nav/>",
+            name: "<nav />",
             hover: "<nav />",
-            url: "tag-div"
+            url: "tag-nav"
         },
 
         ol: {
-            name: "<ol/>",
+            name: "<ol />",
             hover: "<ol />",
-            url: "tag-div"
+            url: "tag-ol"
         },
 
         table: {
-            name: "<table/>",
+            name: "<table />",
             hover: "<table />",
-            url: "tag-div",
+            url: "tag-table",
             supported: false,
         },
 
         input: {
-            name: "<input/>",
+            name: "<input />",
             hover: "<input />",
             url: "tag-input"
         },
 
         textarea: {
-            name: "<textarea/>",
+            name: "<textarea />",
             hover: "<textarea />",
             url: "tag-textarea"
         },
 
         span: {
-            name: "<span/>",
+            name: "<span />",
             hover: "<span />",
             url: "tag-span"
         },
 
         code: {
-            name: "<code/>",
+            name: "<code />",
             hover: "<code />",
             url: "tag-code"
         },
 
         section: {
-            name: "<section/>",
+            name: "<section />",
             hover: "<section />",
             url: "tag-section"
         },
 
         main: {
-            name: "<main/>",
+            name: "<main />",
             hover: "<main />",
             url: "tag-main"
         },
 
         html: {
-            name: "<html/>",
+            name: "<html />",
             hover: "<html />",
             url: "tag-html"
         },
@@ -274,13 +287,15 @@ const sidebarHtml = ref({
     text-decoration: none;
 }
 
+.links:first-child {
+    margin-top: 0 !important;
+}
+
 a {
     text-decoration: none;
-        margin-left: 0;
 
     &:hover {
         background: rgb(40, 39, 39);
-        margin-left: 1;
     }
 
     &:active {

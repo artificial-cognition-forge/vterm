@@ -37,6 +37,8 @@ import Sidebar from '../components/sidebar.vue'
     flex-direction: column;
     width: 100%;
     height: 100%;
+    margin-top: 1;
+    margin-bottom: 1;
     overflow-y: scroll;
 }
 </style>

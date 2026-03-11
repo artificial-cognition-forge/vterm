@@ -12,7 +12,7 @@
 .nav-container {
     display: flex;
     justify-content: space-between;
-    border-bottom: 1px solid cyan;
+    border-bottom: 1px solid grey;
 }
 
 .left-nav {

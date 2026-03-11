@@ -1,79 +1,56 @@
 <template>
     <div class="content">
-        <Header description="Creates a hyperlink to web pages, files, or locations.">
-            &lt;a&gt;: The Anchor element
+        <Header description="Creates a hyperlink to other pages, routes, or external URLs." :supported="true">
+            <code lang="vue">{{ el }}</code>
         </Header>
 
-        <div class="section">
-            <h2>Description</h2>
-            <p>The &lt;a&gt; element, with its href attribute, creates a hyperlink to destinations
-                such as URLs, page sections, email addresses, or any URL-addressable resource.</p>
-        </div>
+        <Attributes :attrs="attrs" />
 
-        <div class="section">
-            <h2>Attributes</h2>
-            <div class="attr-row">
-                <p class="attr-name">href</p>
-                <p class="attr-desc">The URL or destination the link points to.</p>
-            </div>
-            <div class="attr-row">
-                <p class="attr-name">target</p>
-                <p class="attr-desc">Where to open the linked document (_blank, _self, etc).</p>
-            </div>
-            <div class="attr-row">
-                <p class="attr-name">rel</p>
-                <p class="attr-desc">Relationship between the current and linked document.</p>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>Example</h2>
-            <code lang="html">{{ html }}</code>
-
-            <a href="https://example.com">Visit Example</a>
-        </div>
+        <ExamplePanel :code="example">
+            <a href="/tag-div">Go to &lt;div&gt; page</a>
+            <a href="https://vuejs.org">Open vuejs.org</a>
+        </ExamplePanel>
     </div>
 </template>
 
 <script setup lang="ts">
 import Header from '../components/header.vue'
-const html = ref("<a href=\"https://example.com\">Visit Example</a>")
+import Attributes from '../components/attributes.vue'
+import ExamplePanel from '../components/example-panel.vue'
+
+
+const el = '<a />'
+const attrs = [
+    {
+        name: 'href',
+        type: 'string',
+        description: 'Internal path (e.g. "/settings") navigates via useRouter. External URLs (https://) open in the system browser.',
+        example: '<a href="/settings">Settings</a>',
+    },
+]
+
+const example = `<template>
+    <!-- Internal navigation — same as router.push('/tag-div') -->
+    <a href="/tag-div">Go to &lt;div&gt; page</a>
+
+    <!-- External URL — opens in system browser -->
+    <a href="https://vuejs.org">Open vuejs.org</a>
+</template>
+
+<!-- Programmatic navigation via useRouter() -->
+<script setup>
+const router = useRouter()
+const go = () => router.push('/settings')
+<\/script>`
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .content {
     display: flex;
     flex-direction: column;
     width: 100%;
     height: 100%;
     padding: 1 2;
-}
-
-.section {
-    margin-bottom: 1;
-}
-
-h2 {
-    color: cyan;
-    margin-bottom: 1;
-}
-
-p {
-    color: white;
-}
-
-.attr-row {
-    display: flex;
-    margin-bottom: 0;
-}
-
-.attr-name {
-    color: yellow;
-    width: 10;
-}
-
-.attr-desc {
-    color: lightgrey;
-    width: 100%;
+    overflow-y: scroll;
 }
 </style>

@@ -1,14 +1,14 @@
 <template>
     <div class="content">
-        <Header description="A single-line text input with v-model support." :supported="true">
+        <Header description="A multi-line text input with scrolling and v-model support." :supported="true">
             <code lang="html">{{ el }}</code>
         </Header>
 
         <Attributes :attrs="attrs" />
 
         <ExamplePanel :code="example">
-            <input v-model="value" placeholder="Type here..." class="demo-input" />
-            <p class="preview">Value: {{ value }}</p>
+            <textarea v-model="text" placeholder="Type something..." class="demo-textarea" />
+            <p class="preview">Value: {{ text }}</p>
         </ExamplePanel>
     </div>
 </template>
@@ -18,46 +18,46 @@ import Header from '../components/header.vue'
 import Attributes from '../components/attributes.vue'
 import ExamplePanel from '../components/example-panel.vue'
 
-const el = '<input />'
-const value = ref('')
+const el = '<textarea />'
+const text = ref('')
 
 const attrs = [
     {
         name: 'v-model',
         type: 'string',
         description: 'Two-way binding to a ref. Keeps the ref in sync as the user types.',
-        example: '<input v-model="query" />',
+        example: '<textarea v-model="value" />',
     },
     {
         name: 'placeholder',
         type: 'string',
-        description: 'Hint text shown when the input is empty.',
-        example: '<input placeholder="Search..." />',
+        description: 'Hint text shown when the textarea is empty.',
+        example: '<textarea placeholder="Enter notes..." />',
     },
     {
         name: 'readonly',
         type: 'boolean',
-        description: 'Prevents the user from editing the value.',
-        example: '<input readonly :value="display" />',
+        description: 'Prevents editing. Content is still selectable and scrollable.',
+        example: '<textarea readonly />',
     },
 ]
 
 const example = `<template>
-    <input v-model="value" placeholder="Type here..." />
-    <p>Value: {{ value }}</p>
+    <textarea v-model="text" placeholder="Type something..." />
+    <p>Value: {{ text }}</p>
 </template>
 
 <script setup>
-const value = ref('')
+const text = ref('')
 <\/script>
 
 <style scoped>
-input {
-    width: 30;
+textarea {
+    width: 100%;
+    height: 8;
     border: 1px solid grey;
-    padding: 0 1;
+    padding: 1;
 }
-input:focus { border-color: cyan; }
 </style>`
 </script>
 
@@ -71,15 +71,12 @@ input:focus { border-color: cyan; }
     overflow-y: scroll;
 }
 
-.demo-input {
-    width: 30;
+.demo-textarea {
+    width: 100%;
+    height: 6;
     border: 1px solid grey;
-    padding: 0 1;
+    padding: 1;
     margin-bottom: 1;
-
-    &:focus {
-        border-color: cyan;
-    }
 }
 
 .preview {
