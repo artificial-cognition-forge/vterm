@@ -252,7 +252,7 @@ export class ScreenBuffer {
   }
 
   /**
-   * Resizes the buffer
+   * Resizes the buffer (marks all rows as dirty for full redraw after resize)
    */
   resize(width: number, height: number): void {
     const newCells = this.createEmptyBuffer(width, height)
@@ -277,6 +277,8 @@ export class ScreenBuffer {
     this.cells = newCells
     this.width = width
     this.height = height
+
+    // Create fresh dirty row tracking with new height
     this.dirtyRows = new Uint8Array(height)
     this.dirtyRows.fill(1)  // All rows are dirty after resize
   }
@@ -306,5 +308,16 @@ export class ScreenBuffer {
    */
   getCells(): Cell[][] {
     return this.cells
+  }
+
+  /**
+   * Gets count of dirty rows (for diagnostics/testing)
+   */
+  getDirtyRowCount(): number {
+    let count = 0
+    for (let i = 0; i < this.dirtyRows.length; i++) {
+      if (this.dirtyRows[i] === 1) count++
+    }
+    return count
   }
 }

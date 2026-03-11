@@ -64,9 +64,10 @@ export class FrameDiffer {
       return this.renderFull(next, true)
     }
 
-    // Handle resize - render full but DON'T clear screen for smooth transition
+    // Handle resize - clear screen if shrinking to ensure old content is erased
     if (prev.width !== next.width || prev.height !== next.height) {
-      return this.renderFull(next, false)
+      const isShrinking = next.width < prev.width || next.height < prev.height
+      return this.renderFull(next, isShrinking)
     }
 
     // Incremental update: only changed cells

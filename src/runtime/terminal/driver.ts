@@ -215,7 +215,7 @@ export class TerminalDriver extends EventEmitter {
      * Handles terminal resize
      */
     private handleResize(): void {
-        // Debounce resize events to 4.17ms (240fps) for maximum responsiveness
+        // Debounce resize events to 16ms (60fps) for stability during resize drag
         if (this.resizeTimeoutId) {
             clearTimeout(this.resizeTimeoutId)
         }
@@ -227,22 +227,24 @@ export class TerminalDriver extends EventEmitter {
             const newHeight = process.stdout.rows || 24
 
             if (newWidth !== this.width || newHeight !== this.height) {
+                // ATOMIC: Update all dimensions together to avoid races
                 this.width = newWidth
                 this.height = newHeight
 
-                // Resize buffer
+                // Resize buffer (marks all rows dirty internally)
                 this.buffer.resize(newWidth, newHeight)
 
-                // Clear prevBuffer to force a full redraw after resize.
-                // The terminal emulator may reposition content on resize, so
-                // prevBuffer no longer reflects actual terminal state. A full
-                // redraw with clearScreen ensures content starts at (0,0).
+                // Clear prevBuffer BEFORE emitting resize event.
+                // This ensures the layout engine reflow happens with:
+                // - Driver dimensions updated (this.width, this.height)
+                // - Buffer dimensions updated (buffer.width, buffer.height)
+                // - prevBuffer null (triggers full screen clear if shrinking)
                 this.prevBuffer = null
 
-                // Emit resize event
+                // Emit resize event - layout engine listens and refloes immediately
                 this.emit("resize", { width: newWidth, height: newHeight })
             }
-        }, 16) // ~240fps
+        }, 16) // 60fps - stable during resize drag
     }
 
     /**

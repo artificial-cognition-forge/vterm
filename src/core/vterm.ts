@@ -406,11 +406,18 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
 
     // Listen for terminal resize events and recompute layout
     const resizeHandler = () => {
-        // Update layout engine with new terminal dimensions
+        // Synchronize layout engine with driver dimensions
+        // At this point:
+        // - driver.width/height are updated
+        // - driver.buffer is resized
+        // - prevBuffer is null (forces full redraw)
         layoutEngine.updateContainerSize(driver.width, driver.height)
 
-        // Recompute layout with current root if it exists
+        // Clear any stale layout state to ensure clean reflow
+        // (This prevents old cached layout from bleeding into new resize)
         if (currentLayoutRoot) {
+            // Invalidate cached styles on root to force full recalculation
+            currentLayoutRoot.layout = null
             performLayout(currentLayoutRoot)
         }
     }
