@@ -79,8 +79,9 @@ case 'color': {
     case 'text-decoration':
     case 'text-decoration-line':
       if (value.includes('underline')) {
-        const visual = ensureVisualStyles(props)
-        visual.underline = true
+        ensureVisualStyles(props).underline = true
+      } else if (value === 'none') {
+        ensureVisualStyles(props).underline = false
       }
       break
     // Terminal shorthand: underline: true / underline: 1

@@ -3,11 +3,11 @@ import type { LayoutNode } from '../../core/layout/types'
 import type { KeyEvent } from '../terminal/input'
 import { registerElement } from './registry'
 import { getGlobalRouter } from '../../core/router/router'
-import { spawnSync } from 'child_process'
+import { spawn } from 'child_process'
 
 function openExternal(url: string): void {
     const cmd = process.platform === 'darwin' ? 'open' : 'xdg-open'
-    spawnSync(cmd, [url], { detached: true, stdio: 'ignore' })
+    spawn(cmd, [url], { detached: true, stdio: 'ignore' }).unref()
 }
 
 const anchorBehavior: ElementBehavior = {

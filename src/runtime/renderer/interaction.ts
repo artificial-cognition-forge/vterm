@@ -12,7 +12,7 @@ import type { LayoutNode } from "../../core/layout/types"
 import { isScrollableNode } from "../../core/layout/utils"
 import type { MouseEvent } from "../terminal/input"
 import { getGlobalRouter } from "../../core/router/router"
-import { spawnSync } from "child_process"
+import { spawn } from "child_process"
 
 /**
  * Interactive state for a node
@@ -261,20 +261,20 @@ export class InteractionManager {
                 pressHandler(event)
             }
 
-            // Navigate <a href> links that have no explicit press/click handler
-            if (
-                targetNode.type === "a" &&
-                targetNode.props.href &&
-                !pressHandler &&
-                !clickHandler
-            ) {
-                const href = targetNode.props.href
-                if (/^https?:\/\//.test(href)) {
-                    const cmd = process.platform === "darwin" ? "open" : "xdg-open"
-                    spawnSync(cmd, [href], { detached: true, stdio: "ignore" })
-                } else {
-                    const router = getGlobalRouter()
-                    if (router) router.push(href)
+            // Navigate <a href> links — check target and its ancestors.
+            // When a <div> or other element is nested inside <a>, the hit test
+            // returns the inner node, so we walk up to find the <a>.
+            if (!pressHandler && !clickHandler) {
+                const anchorNode = this.findAnchorAncestor(targetNode)
+                if (anchorNode) {
+                    const href = anchorNode.props.href
+                    if (/^https?:\/\//.test(href)) {
+                        const cmd = process.platform === "darwin" ? "open" : "xdg-open"
+                        spawn(cmd, [href], { detached: true, stdio: "ignore" }).unref()
+                    } else {
+                        const router = getGlobalRouter()
+                        if (router) router.push(href)
+                    }
                 }
             }
         }
@@ -315,6 +315,15 @@ export class InteractionManager {
 
         // Notify state change to trigger re-render
         this.notifyStateChange()
+    }
+
+    /**
+     * Find the nearest <a href> node at or above the given node
+     */
+    private findAnchorAncestor(node: LayoutNode): LayoutNode | null {
+        if (node.type === "a" && node.props.href) return node
+        if (node.parent) return this.findAnchorAncestor(node.parent)
+        return null
     }
 
     /**

@@ -24,6 +24,20 @@ interface ClipBox {
   height: number
 }
 
+// Inheritable CSS properties: values flow from ancestor to descendant
+// unless the descendant's own style explicitly overrides them.
+const INHERITABLE_STYLE_KEYS = ['fg', 'underline', 'bold', 'italic'] as const
+
+function applyInheritedStyle(nodeStyle: VisualStyle, inherited: VisualStyle): VisualStyle {
+  const result = { ...nodeStyle }
+  for (const key of INHERITABLE_STYLE_KEYS) {
+    if (result[key] === undefined && inherited[key] !== undefined) {
+      (result as any)[key] = inherited[key]
+    }
+  }
+  return result
+}
+
 const BOX_CHARS = {
   line: {
     topLeft: "┌",
@@ -170,23 +184,25 @@ export class RenderingPass {
       // - For other layers: use contextScrollY (includes context's scrollY)
       const layerParentScrollY = layer.zIndex === -Infinity ? parentScrollY : contextScrollY
 
-      // Pre-compute clip boxes once for this layer (optimization: avoid O(N*D) ancestor walks)
+      // Pre-compute clip boxes and inherited styles once per node
       const nodeCount = layer.nodes.length
       const clipBoxes: Array<ClipBox | undefined> = new Array(nodeCount)
+      const inheritedStyles: Array<VisualStyle | undefined> = new Array(nodeCount)
       for (let i = 0; i < nodeCount; i++) {
         clipBoxes[i] = this.computeClipBoxFromAncestors(layer.nodes[i]!, contextClipBox)
+        inheritedStyles[i] = this.computeInheritedStyleFromAncestors(layer.nodes[i]!)
       }
 
       // First pass for this z-index: render backgrounds and borders
       this.isTextPass = false
       for (let i = 0; i < nodeCount; i++) {
-        this.renderNode(layer.nodes[i]!, context, layerParentScrollY, clipBoxes[i])
+        this.renderNode(layer.nodes[i]!, context, layerParentScrollY, clipBoxes[i], inheritedStyles[i])
       }
 
       // Second pass for this z-index: render text content
       this.isTextPass = true
       for (let i = 0; i < nodeCount; i++) {
-        this.renderNode(layer.nodes[i]!, context, layerParentScrollY, clipBoxes[i])
+        this.renderNode(layer.nodes[i]!, context, layerParentScrollY, clipBoxes[i], inheritedStyles[i])
       }
 
       // Render nested stacking contexts that are at this z-index level
@@ -220,13 +236,15 @@ export class RenderingPass {
     node: LayoutNode,
     parentContext: StackingContext,
     parentScrollY: number,
-    clipBox?: ClipBox
+    clipBox?: ClipBox,
+    inheritedStyle?: VisualStyle
   ): void {
     if (!node.layout) return
     if (node.style.invisible || node.layoutProps.display === "none") return
 
     const effectiveScrollY = parentScrollY + node.scrollY
-    const effectiveStyle = this.getEffectiveStyle(node)
+    const nodeStyle = this.getEffectiveStyle(node)
+    const effectiveStyle = inheritedStyle ? applyInheritedStyle(nodeStyle, inheritedStyle) : nodeStyle
 
     if (!this.isTextPass) {
       // Pass 1: Render backgrounds and borders
@@ -248,9 +266,9 @@ export class RenderingPass {
     if (!node.createsStackingContext) {
       const childClipBox = this.computeChildClipBox(node, parentScrollY, clipBox)
 
-      // Render children in document order (they belong to parent context)
+      // Render children, passing down effective style for CSS inheritance
       for (const child of node.children) {
-        this.renderNode(child, parentContext, effectiveScrollY, childClipBox)
+        this.renderNode(child, parentContext, effectiveScrollY, childClipBox, effectiveStyle)
       }
 
       // Render scrollbar on top of children (text pass, after content is rendered)
@@ -258,6 +276,30 @@ export class RenderingPass {
         this.renderScrollbar(node, parentScrollY)
       }
     }
+  }
+
+  /**
+   * Compute the inherited CSS style for a node from its ancestor chain.
+   * Walks up parent nodes collecting inheritable properties (fg, underline, bold, italic)
+   * until reaching the tree root. Nearest ancestor wins (first set value wins).
+   */
+  private computeInheritedStyleFromAncestors(node: LayoutNode): VisualStyle | undefined {
+    const result: Partial<VisualStyle> = {}
+    let remaining = INHERITABLE_STYLE_KEYS.length
+    let current = node.parent
+
+    while (current && remaining > 0) {
+      const style = this.getEffectiveStyle(current)
+      for (const key of INHERITABLE_STYLE_KEYS) {
+        if (result[key] === undefined && style[key] !== undefined) {
+          (result as any)[key] = style[key]
+          remaining--
+        }
+      }
+      current = current.parent
+    }
+
+    return remaining < INHERITABLE_STYLE_KEYS.length ? result as VisualStyle : undefined
   }
 
   /**

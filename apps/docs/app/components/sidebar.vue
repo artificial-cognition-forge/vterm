@@ -4,12 +4,14 @@
 
         <div class="links" v-if="sidebar.page.value === 'html'">
             <a :href="link.url" v-for="link in sidebarHtml.links">
-                <code lang="html">{{ link.name }}</code>
+                <div class="">hello</div>
+                <!-- <code lang="html">{{ link.name }}</code> -->
             </a>
         </div>
 
         <div class="links" v-if="sidebar.page.value === 'css'">
             <a :href="link.url" v-for="link in sidebarCss.links">
+                <div class="">hello</div>
                 <code lang="typescript">{{ link.name }}</code>
             </a>
         </div>
