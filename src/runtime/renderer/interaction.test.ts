@@ -308,6 +308,136 @@ describe('InteractionManager - Hit Testing', () => {
     })
 })
 
+describe('InteractionManager - Scroll-Aware Hit Testing', () => {
+    /**
+     * Helper: create a node marked as scrollable (overflow:scroll).
+     * Sets layoutProps.scrollable so isScrollableNode() returns true.
+     */
+    function createScrollableNode(
+        id: string,
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        scrollY: number,
+        children: LayoutNode[] = [],
+    ): LayoutNode {
+        const node = createNode(id, x, y, width, height, { children })
+        node.layoutProps.scrollable = true
+        node.scrollY = scrollY
+        return node
+    }
+
+    it('should hit a child at its visual position when the container is scrolled down', () => {
+        // Container at rows 0-9, scrolled down by 3
+        // Child at layout.y=5, visual y = 5 - 3 = 2
+        const child = createNode('child', 0, 5, 10, 2)
+        const container = createScrollableNode('container', 0, 0, 10, 10, 3, [child])
+        const root = createNode('root', 0, 0, 10, 10, { children: [container] })
+
+        const manager = new InteractionManager()
+
+        // Mouse at visual y=2 should hit the child
+        expect((manager as any).hitTest(5, 2, root)?.id).toBe('child')
+    })
+
+    it('should not hit a child scrolled above the container viewport', () => {
+        // Container at rows 0-9, scrolled down by 5
+        // Child at layout.y=2, visual y = 2 - 5 = -3 (above viewport)
+        const child = createNode('child', 0, 2, 10, 2)
+        const container = createScrollableNode('container', 0, 0, 10, 10, 5, [child])
+        const root = createNode('root', 0, 0, 10, 10, { children: [container] })
+
+        const manager = new InteractionManager()
+
+        // Mouse at visual y=0 should hit the container, not the (scrolled-out) child
+        const hit = (manager as any).hitTest(5, 0, root)
+        expect(hit?.id).toBe('container')
+    })
+
+    it('should hit the container itself when mouse is in viewport but no child is under cursor', () => {
+        // Container at rows 0-9, scrolled down by 3
+        // Child at layout.y=10, visual y = 10 - 3 = 7
+        const child = createNode('child', 0, 10, 10, 2)
+        const container = createScrollableNode('container', 0, 0, 10, 10, 3, [child])
+        const root = createNode('root', 0, 0, 10, 10, { children: [container] })
+
+        const manager = new InteractionManager()
+
+        // y=2 is within container but child is at visual y=7, so only container is hit
+        expect((manager as any).hitTest(5, 2, root)?.id).toBe('container')
+    })
+
+    it('hover dispatches to the child at its scrolled visual position', () => {
+        // Container at rows 0-9, scrolled down by 4
+        // Child at layout.y=6, visual y = 6 - 4 = 2
+        const child = createNode('child', 0, 6, 10, 2)
+        const container = createScrollableNode('container', 0, 0, 10, 10, 4, [child])
+        const root = createNode('root', 0, 0, 10, 10, { children: [container] })
+
+        let hovered = false
+        child.events.set('mouseover', () => { hovered = true })
+
+        const manager = new InteractionManager()
+        manager.handleMouseEvent(
+            { type: 'mousemove', button: 'none', x: 5, y: 2, ctrl: false, shift: false, meta: false },
+            root,
+        )
+
+        expect(hovered).toBe(true)
+    })
+
+    it('hover does not fire on child that has scrolled out of view', () => {
+        // Container at rows 0-9, scrolled down by 8
+        // Child at layout.y=1, visual y = 1 - 8 = -7 (out of view above)
+        const child = createNode('child', 0, 1, 10, 2)
+        const container = createScrollableNode('container', 0, 0, 10, 10, 8, [child])
+        const root = createNode('root', 0, 0, 10, 10, { children: [container] })
+
+        let hovered = false
+        child.events.set('mouseover', () => { hovered = true })
+
+        const manager = new InteractionManager()
+        // Move across entire container — child is not visible so it should never be hovered
+        for (let y = 0; y < 10; y++) {
+            manager.handleMouseEvent(
+                { type: 'mousemove', button: 'none', x: 5, y, ctrl: false, shift: false, meta: false },
+                root,
+            )
+        }
+
+        expect(hovered).toBe(false)
+    })
+
+    it('handles nested scrollable containers correctly', () => {
+        // Outer container at rows 0-19, scrolled down by 5
+        // Inner container at layout.y=10, visual y = 10 - 5 = 5, scrolled by 2
+        // Item at layout.y=13 (inside inner), visual y = 13 - (5+2) = 6
+        const item = createNode('item', 0, 13, 10, 2)
+        const inner = createScrollableNode('inner', 0, 10, 10, 6, 2, [item])
+        const outer = createScrollableNode('outer', 0, 0, 10, 20, 5, [inner])
+        const root = createNode('root', 0, 0, 10, 20, { children: [outer] })
+
+        const manager = new InteractionManager()
+
+        // Mouse at visual y=6 should hit item
+        expect((manager as any).hitTest(5, 6, root)?.id).toBe('item')
+    })
+
+    it('unscrolled containers behave identically to original hit testing', () => {
+        // scrollY=0 should be identical to the old behaviour
+        const child = createNode('child', 2, 3, 5, 4)
+        const container = createScrollableNode('container', 0, 0, 10, 10, 0, [child])
+        const root = createNode('root', 0, 0, 10, 10, { children: [container] })
+
+        const manager = new InteractionManager()
+
+        expect((manager as any).hitTest(4, 5, root)?.id).toBe('child')
+        expect((manager as any).hitTest(1, 1, root)?.id).toBe('container')
+        expect((manager as any).hitTest(15, 5, root)).toBeNull()
+    })
+})
+
 describe('InteractionManager - Mouse Events', () => {
     it('should dispatch wheel event to topmost scrollable element', () => {
         const manager = new InteractionManager()

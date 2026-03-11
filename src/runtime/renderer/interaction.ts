@@ -125,24 +125,60 @@ export class InteractionManager {
     }
 
     /**
-     * Collect all nodes that contain the point and have pointer-events enabled
+     * Collect all nodes that contain the point and have pointer-events enabled.
+     *
+     * parentScrollY: accumulated scroll offset from ancestor scrollable containers.
+     *   A node's visual (screen) Y = layout.y - parentScrollY.
+     *   Children inherit parentScrollY + node.scrollY so that nested scroll
+     *   containers compose correctly — mirroring the rendering-pass logic exactly.
+     *
+     * clipBox: the visible viewport of the nearest scrollable ancestor (in screen
+     *   coordinates). Nodes whose visual position falls outside this box are not
+     *   rendered and must not be hit candidates.
      */
-    private collectCandidates(x: number, y: number, node: LayoutNode, candidates: LayoutNode[] = []): LayoutNode[] {
-        // Check if this node has layout and contains the point
+    private collectCandidates(
+        x: number,
+        y: number,
+        node: LayoutNode,
+        candidates: LayoutNode[] = [],
+        parentScrollY: number = 0,
+        clipBox?: { x: number; y: number; width: number; height: number },
+    ): LayoutNode[] {
         const layout = node.layout
         if (!layout) return candidates
+
+        // Visual (screen) Y after subtracting accumulated ancestor scroll
+        const visualY = layout.y - parentScrollY
 
         const inBounds =
             x >= layout.x &&
             x < layout.x + layout.width &&
-            y >= layout.y &&
-            y < layout.y + layout.height
+            y >= visualY &&
+            y < visualY + layout.height
 
         if (!inBounds) return candidates
 
+        // Reject nodes whose visual position lies outside the scrollable ancestor's viewport
+        if (clipBox) {
+            const outOfClip =
+                x < clipBox.x ||
+                x >= clipBox.x + clipBox.width ||
+                y < clipBox.y ||
+                y >= clipBox.y + clipBox.height
+            if (outOfClip) return candidates
+        }
+
+        // Children accumulate this node's own scrollY on top of the parent's offset
+        const childScrollY = parentScrollY + node.scrollY
+
+        // Scrollable nodes clip their children to their own visible viewport
+        const childClipBox = isScrollableNode(node)
+            ? { x: layout.x, y: visualY, width: layout.width, height: layout.height }
+            : clipBox
+
         // Recursively check children first (bottom-up collection)
         for (const child of node.children) {
-            this.collectCandidates(x, y, child, candidates)
+            this.collectCandidates(x, y, child, candidates, childScrollY, childClipBox)
         }
 
         // Add this node if pointer-events is not 'none'

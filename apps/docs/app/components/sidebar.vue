@@ -25,7 +25,7 @@
 
         <div class="links">
             <h2>VTERM</h2>
-            <a :href="link.url" v-for="link in sidebarVue.links">
+            <a :href="link.url" v-for="link in sidebarVterm.links">
                 <code lang="vue">{{ link.name }}</code>
             </a>
         </div>
@@ -37,6 +37,10 @@ import { useSidebar } from '../composables/useSidebar';
 
 const sidebar = useSidebar()
 
+const sidebarVterm= ref({
+    links: {
+    }
+})
 const sidebarVue= ref({
     links: {
         color: {
@@ -67,6 +71,86 @@ const sidebarCss = ref({
             name: "opacity",
             url: "property-opacity"
         },
+
+        background: {
+            name: "background",
+            url: "property-background"
+        },
+
+        border: {
+            name: "border",
+            url: "property-border"
+        },
+
+        margin: {
+            name: "margin",
+            url: "property-margin"
+        },
+
+        padding: {
+            name: "padding",
+            url: "property-padding"
+        },
+
+        width: {
+            name: "width",
+            url: "property-width"
+        },
+        
+        height: {
+            name: "height",
+            url: "property-height"
+        },
+
+        display: {
+            name: "display",
+            url: "property-display"
+        },
+
+        flex: {
+            name: "flex",
+            url: "property-flex"
+        },
+
+        justify: {
+            name: "justify",
+            url: "property-justify"
+        },
+
+        align: {
+            name: "align",
+            url: "property-align"
+        },
+
+        position: {
+            name: "position",
+            url: "property-position"
+        },
+
+        top: {
+            name: "top",
+            url: "property-top"
+        },
+
+        bottom: {
+            name: "bottom",
+            url: "property-bottom"
+        },
+
+        left: {
+            name: "left",
+            url: "property-left"
+        },
+
+        right: {
+            name: "right",
+            url: "property-right"
+        },
+
+        "z-index": {
+            name: "z-index",
+            url: "property-z"
+        },
     }
 })
 
@@ -78,10 +162,58 @@ const sidebarHtml = ref({
             url: "tag-a"
         },
 
+        hr: {
+            name: "<hr/>",
+            hover: "<hr />",
+            url: "tag-div"
+        },
         div: {
             name: "<div/>",
             hover: "<div />",
             url: "tag-div"
+        },
+
+        ul: {
+            name: "<ul/>",
+            hover: "<ul />",
+            url: "tag-div"
+        },
+
+        li: {
+            name: "<li/>",
+            hover: "<li />",
+            url: "tag-div"
+        },
+
+        p: {
+            name: "<p/>",
+            hover: "<p />",
+            url: "tag-div"
+        },
+
+        h: {
+            name: "<h1/>",
+            hover: "<h1 />",
+            url: "tag-div"
+        },
+
+        nav: {
+            name: "<nav/>",
+            hover: "<nav />",
+            url: "tag-div"
+        },
+
+        ol: {
+            name: "<ol/>",
+            hover: "<ol />",
+            url: "tag-div"
+        },
+
+        table: {
+            name: "<table/>",
+            hover: "<table />",
+            url: "tag-div",
+            supported: false,
         },
 
         input: {
@@ -149,6 +281,10 @@ a {
     &:hover {
         background: rgb(40, 39, 39);
         margin-left: 1;
+    }
+
+    &:active {
+        background: rgb(30, 29, 29);
     }
 }
 

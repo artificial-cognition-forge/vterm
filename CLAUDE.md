@@ -45,6 +45,28 @@ my-app/
     tsconfig.json
 ```
 
+## Docs App (`apps/docs/`)
+
+A built-in VTerm application that serves as both the official documentation and a real-world CSS/HTML compliance testbed. It deliberately mirrors the style and structure of MDN Web Docs — a nav bar at the top, a categorized sidebar on the left (HTML, CSS, Vue, VTerm sections), and a scrollable content area on the right.
+
+**Purpose (dual):**
+1. Ship developer docs as a TUI users can run locally via `vterm dev` inside `apps/docs/`
+2. Expose CSS edge cases early — every element page renders live examples, which makes rendering bugs obvious
+
+**Layout:** `Navigation` (top bar, cyan border-bottom) → `Sidebar` (20-col, categorized nav links) → `content` (page slot, scrollable)
+
+**Key files:**
+- `apps/docs/vterm.config.ts` — config (title: "Mdn", quit: C-c)
+- `apps/docs/app/layout/default.vue` — shared chrome (nav + sidebar + content slot)
+- `apps/docs/app/components/sidebar.vue` — sidebar nav, driven by `useSidebar()`
+- `apps/docs/app/components/navigation.vue` — top bar
+- `apps/docs/app/composables/useSidebar.ts` — sidebar page state
+- `apps/docs/app/pages/` — one page per element/feature (e.g. `tag-div.vue`, `tag-a.vue`, `tag-input.vue`)
+
+**Page structure (each element page):** `<Header>` (element name + support badge) → Attributes section → split Example/Rendered section
+
+**Adding new element coverage:** create `apps/docs/app/pages/tag-<name>.vue`, add a link entry in `sidebar.vue`'s `sidebarHtml` ref, then run `vterm build` inside `apps/docs/` to regenerate routes.
+
 ## Vterm Structure
 ```tree
 ├── CLAUDE.md
