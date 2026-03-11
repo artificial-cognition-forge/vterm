@@ -147,7 +147,8 @@ A built-in VTerm application that serves as both the official documentation and 
 │   │   │   │   ├── exports.ts
 │   │   │   │   ├── useFocus.ts
 │   │   │   │   ├── useKeys.ts
-│   │   │   │   └── useScreen.ts
+│   │   │   │   ├── useScreen.ts
+│   │   │   │   └── useTerminal.ts
 │   │   │   ├── exports.ts
 │   │   │   ├── pages
 │   │   │   │   ├── 404.vue
@@ -294,6 +295,20 @@ const screen = useScreen()
 const width = screen.width
 const height = screen.height
 screen.key(['escape'], () => process.exit(0))
+```
+
+### `useTerminal()`
+
+Access reactive terminal state (width and height). Use this in templates for responsive layouts.
+
+```ts
+const terminal = useTerminal()
+// Reactive computed properties safe to use in templates
+console.log(terminal.width)   // Computed ref (reactive)
+console.log(terminal.height)  // Computed ref (reactive)
+
+// In template:
+// <p>Terminal is {{ terminal.width }} x {{ terminal.height }}</p>
 ```
 
 ### `useRender()`

@@ -59,6 +59,7 @@ export async function initAutoImports(cwd: string = process.cwd()) {
           'useScreen',
           'useFocus',
           'useRender',
+          'useTerminal',
           // Storage
           'useStore',
           'createStore',

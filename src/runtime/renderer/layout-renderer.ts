@@ -16,6 +16,34 @@ import type { LayoutNode, LayoutProperties, VisualStyle } from "../../core/layou
 import type { ParsedStyles } from "../../core/css/types"
 import { getCurrentScopeId } from "../../core/compiler/sfc-loader"
 import { decodeScopedKey } from "../../core/css/transformer"
+import { transformDeclaration } from "../../core/css/declaration-transformer"
+
+/**
+ * Convert camelCase to kebab-case for CSS property names
+ */
+function camelToKebab(str: string): string {
+    return str.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`)
+}
+
+/**
+ * Apply style object properties to layout properties and visual styles
+ */
+function applyStyleObject(
+    styleObj: Record<string, any>,
+    layoutProps: LayoutProperties,
+    visualStyle: VisualStyle
+): void {
+    for (const [key, val] of Object.entries(styleObj)) {
+        if (val === null || val === undefined) continue
+        const cssProp = camelToKebab(key)
+        transformDeclaration(cssProp, String(val), layoutProps)
+    }
+    // Copy visualStyles from layoutProps to visualStyle
+    if (layoutProps.visualStyles) {
+        Object.assign(visualStyle, layoutProps.visualStyles)
+        delete layoutProps.visualStyles
+    }
+}
 
 /**
  * UA (user-agent) default styles — applied before user CSS, lowest priority.
@@ -349,6 +377,33 @@ export function createLayoutRenderer(
 
                 // Store class on props for later reference
                 node.props.class = classNames
+                return
+            }
+
+            // Handle style attribute - apply inline CSS styles
+            if (key === "style") {
+                const uaDefaults = UA_LAYOUT_PROPS[node.type]
+                const { layoutProps: cssLayoutProps, visualStyle } = resolveNodeStyles(
+                    node.type,
+                    node.props.class ?? [],
+                    styles,
+                    node._scopeId
+                )
+                const layoutProps: LayoutProperties = uaDefaults
+                    ? { ...uaDefaults, ...cssLayoutProps }
+                    : cssLayoutProps
+
+                const styleObjs = Array.isArray(nextValue) ? nextValue : [nextValue]
+                for (const styleObj of styleObjs) {
+                    if (styleObj && typeof styleObj === 'object') {
+                        applyStyleObject(styleObj, layoutProps, visualStyle)
+                    }
+                }
+
+                node.layoutProps = { ...node.layoutProps, ...layoutProps }
+                Object.assign(node.style, visualStyle)
+                node.props.style = nextValue
+                notifyUpdate()
                 return
             }
 

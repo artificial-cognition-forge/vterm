@@ -105,6 +105,7 @@ const STATIC_MODULE_SCOPE = Object.freeze({
     useScreen: composables.useScreen,
     useFocus: composables.useFocus,
     useRender: composables.useRender,
+    useTerminal: composables.useTerminal,
     // Error state — exposed so platform error.vue can read/clear the current error
     vtermError,
     clearVTermError,

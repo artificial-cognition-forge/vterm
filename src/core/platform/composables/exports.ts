@@ -2,3 +2,4 @@
 export * from "./useKeys"
 export * from "./useScreen"
 export * from "./useFocus"
+export * from "./useTerminal"

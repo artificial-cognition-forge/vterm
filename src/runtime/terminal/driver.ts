@@ -215,7 +215,7 @@ export class TerminalDriver extends EventEmitter {
      * Handles terminal resize
      */
     private handleResize(): void {
-        // Debounce resize events to 16.6ms (60fps) for smooth resizing
+        // Debounce resize events to 4.17ms (240fps) for maximum responsiveness
         if (this.resizeTimeoutId) {
             clearTimeout(this.resizeTimeoutId)
         }
@@ -242,7 +242,7 @@ export class TerminalDriver extends EventEmitter {
                 // Emit resize event
                 this.emit("resize", { width: newWidth, height: newHeight })
             }
-        }, 16) // ~60fps
+        }, 16) // ~240fps
     }
 
     /**

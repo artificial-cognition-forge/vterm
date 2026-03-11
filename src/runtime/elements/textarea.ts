@@ -17,6 +17,28 @@ function ensureState(node: LayoutNode): void {
         node._inputValue = getValue(node)
         node._cursorPos = node._inputValue.length
         node._prevCursorPos = node._cursorPos
+        node._selectionStart = node._cursorPos
+        node._selectionEnd = node._cursorPos
+    }
+}
+
+function findWordBoundary(text: string, pos: number, direction: 'left' | 'right'): number {
+    if (direction === 'left') {
+        if (pos <= 0) return 0
+        let i = pos - 1
+        // Skip whitespace/non-word chars
+        while (i >= 0 && !/\w/.test(text[i]!)) i--
+        // Skip word chars
+        while (i >= 0 && /\w/.test(text[i]!)) i--
+        return i + 1
+    } else {
+        if (pos >= text.length) return text.length
+        let i = pos
+        // Skip word chars
+        while (i < text.length && /\w/.test(text[i]!)) i++
+        // Skip whitespace/non-word chars
+        while (i < text.length && !/\w/.test(text[i]!)) i++
+        return i
     }
 }
 
@@ -104,6 +126,19 @@ const textareaBehavior: ElementBehavior = {
 
         const val = node._inputValue!
         const pos = node._cursorPos!
+        let selStart = node._selectionStart ?? pos
+        let selEnd = node._selectionEnd ?? pos
+
+        // Handle Ctrl+A (select all)
+        if (key.ctrl && key.name === 'a') {
+            selStart = 0
+            selEnd = val.length
+            node._selectionStart = selStart
+            node._selectionEnd = selEnd
+            node._cursorPos = val.length
+            requestRender()
+            return
+        }
 
         // Determine content width for visual wrapping
         const layout = node.layout
@@ -115,17 +150,160 @@ const textareaBehavior: ElementBehavior = {
         const visualLines = contentWidth > 0 ? buildVisualLines(val, contentWidth) : null
         const navInfo = visualLines ? getVisualPos(visualLines, pos) : getCursorLineCol(val, pos)
 
+        // Handle Ctrl+Shift+Left/Right for word selection
+        if (key.ctrl && key.shift && (key.name === 'left' || key.name === 'right')) {
+            // Anchor selection at current cursor if not already selecting
+            if (selStart === pos && selEnd === pos) {
+                selStart = pos
+            }
+            let newPos = pos
+            if (key.name === 'left') {
+                newPos = findWordBoundary(val, pos, 'left')
+            } else if (key.name === 'right') {
+                newPos = findWordBoundary(val, pos, 'right')
+            }
+            node._cursorPos = newPos
+            // Extend selection from original anchor
+            if (newPos < selStart) {
+                node._selectionStart = newPos
+                node._selectionEnd = selStart
+            } else {
+                node._selectionStart = selStart
+                node._selectionEnd = newPos
+            }
+            requestRender()
+            return
+        }
+
+        // Handle shift+arrow for selection
+        const isShift = key.shift ?? false
+        if (isShift && (key.name === 'left' || key.name === 'right' || key.name === 'home' || key.name === 'end' || key.name === 'up' || key.name === 'down')) {
+            // Anchor selection at current cursor if not already selecting
+            if (selStart === pos && selEnd === pos) {
+                selStart = pos
+            }
+            // Move cursor and extend selection
+            let newPos = pos
+            if (key.name === 'left') {
+                newPos = Math.max(0, pos - 1)
+            } else if (key.name === 'right') {
+                newPos = Math.min(val.length, pos + 1)
+            } else if (key.name === 'home') {
+                if (visualLines) {
+                    const vLine = (navInfo as any).vLine
+                    newPos = visualLines[vLine]!.startPos
+                } else {
+                    const lines = val.split('\n')
+                    const line = (navInfo as any).line as number
+                    newPos = getFlatPos(lines, line, 0)
+                }
+            } else if (key.name === 'end') {
+                if (visualLines) {
+                    const vLine = (navInfo as any).vLine
+                    const vl = visualLines[vLine]!
+                    newPos = vl.startPos + vl.text.length
+                } else {
+                    const lines = val.split('\n')
+                    const line = (navInfo as any).line as number
+                    newPos = getFlatPos(lines, line, lines[line]?.length ?? 0)
+                }
+            } else if (key.name === 'up') {
+                if (visualLines) {
+                    const vLine = (navInfo as any).vLine
+                    const col = navInfo.col
+                    if (vLine > 0) {
+                        const prevLine = visualLines[vLine - 1]!
+                        newPos = prevLine.startPos + Math.min(col, prevLine.text.length)
+                    } else {
+                        newPos = 0
+                    }
+                } else {
+                    const lines = val.split('\n')
+                    const line = (navInfo as any).line as number
+                    const col = navInfo.col as number
+                    newPos = line > 0 ? getFlatPos(lines, line - 1, col) : 0
+                }
+            } else if (key.name === 'down') {
+                if (visualLines) {
+                    const vLine = (navInfo as any).vLine
+                    const col = navInfo.col
+                    if (vLine < visualLines.length - 1) {
+                        const nextLine = visualLines[vLine + 1]!
+                        newPos = nextLine.startPos + Math.min(col, nextLine.text.length)
+                    } else {
+                        newPos = val.length
+                    }
+                } else {
+                    const lines = val.split('\n')
+                    const line = (navInfo as any).line as number
+                    const col = navInfo.col as number
+                    newPos = line < lines.length - 1
+                        ? getFlatPos(lines, line + 1, col)
+                        : val.length
+                }
+            }
+            node._cursorPos = newPos
+            // Extend selection from original anchor
+            if (newPos < selStart) {
+                node._selectionStart = newPos
+                node._selectionEnd = selStart
+            } else {
+                node._selectionStart = selStart
+                node._selectionEnd = newPos
+            }
+            requestRender()
+            return
+        }
+
+        // Clear selection on any non-shift movement
+        if (key.name === 'left' || key.name === 'right' || key.name === 'home' || key.name === 'end' || key.name === 'up' || key.name === 'down') {
+            selStart = pos
+            selEnd = pos
+        }
+
         if (key.name === 'backspace') {
-            if (pos > 0) {
+            if (selStart !== selEnd) {
+                const start = Math.min(selStart, selEnd)
+                const end = Math.max(selStart, selEnd)
+                node._inputValue = val.slice(0, start) + val.slice(end)
+                node._cursorPos = start
+                node._selectionStart = start
+                node._selectionEnd = start
+            } else if (pos > 0) {
                 node._inputValue = val.slice(0, pos - 1) + val.slice(pos)
                 node._cursorPos = pos - 1
+                node._selectionStart = pos - 1
+                node._selectionEnd = pos - 1
             }
         } else if (key.name === 'delete') {
-            node._inputValue = val.slice(0, pos) + val.slice(pos + 1)
+            if (selStart !== selEnd) {
+                const start = Math.min(selStart, selEnd)
+                const end = Math.max(selStart, selEnd)
+                node._inputValue = val.slice(0, start) + val.slice(end)
+                node._cursorPos = start
+                node._selectionStart = start
+                node._selectionEnd = start
+            } else {
+                node._inputValue = val.slice(0, pos) + val.slice(pos + 1)
+                node._selectionStart = pos
+                node._selectionEnd = pos
+            }
+        } else if (key.ctrl && key.name === 'left') {
+            node._cursorPos = findWordBoundary(val, pos, 'left')
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
+        } else if (key.ctrl && key.name === 'right') {
+            node._cursorPos = findWordBoundary(val, pos, 'right')
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (key.name === 'left') {
             node._cursorPos = Math.max(0, pos - 1)
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (key.name === 'right') {
             node._cursorPos = Math.min(val.length, pos + 1)
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (key.name === 'up') {
             if (visualLines) {
                 const vLine = navInfo.vLine
@@ -143,6 +321,8 @@ const textareaBehavior: ElementBehavior = {
                 const col = navInfo.col as number
                 node._cursorPos = line > 0 ? getFlatPos(lines, line - 1, col) : 0
             }
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (key.name === 'down') {
             if (visualLines) {
                 const vLine = navInfo.vLine
@@ -162,6 +342,8 @@ const textareaBehavior: ElementBehavior = {
                     ? getFlatPos(lines, line + 1, col)
                     : val.length
             }
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (key.name === 'home') {
             if (visualLines) {
                 const vLine = navInfo.vLine
@@ -172,6 +354,8 @@ const textareaBehavior: ElementBehavior = {
                 const line = navInfo.line as number
                 node._cursorPos = getFlatPos(lines, line, 0)
             }
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (key.name === 'end') {
             if (visualLines) {
                 const vLine = navInfo.vLine
@@ -183,12 +367,32 @@ const textareaBehavior: ElementBehavior = {
                 const line = navInfo.line as number
                 node._cursorPos = getFlatPos(lines, line, lines[line]?.length ?? 0)
             }
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (key.name === 'enter') {
-            node._inputValue = val.slice(0, pos) + '\n' + val.slice(pos)
-            node._cursorPos = pos + 1
+            if (selStart !== selEnd) {
+                const start = Math.min(selStart, selEnd)
+                const end = Math.max(selStart, selEnd)
+                node._inputValue = val.slice(0, start) + '\n' + val.slice(end)
+                node._cursorPos = start + 1
+            } else {
+                node._inputValue = val.slice(0, pos) + '\n' + val.slice(pos)
+                node._cursorPos = pos + 1
+            }
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (!key.ctrl && !key.meta && key.sequence && key.sequence.length === 1) {
-            node._inputValue = val.slice(0, pos) + key.sequence + val.slice(pos)
-            node._cursorPos = pos + 1
+            // Typing replaces selection if any
+            if (selStart !== selEnd) {
+                const start = Math.min(selStart, selEnd)
+                node._inputValue = val.slice(0, start) + key.sequence + val.slice(Math.max(selStart, selEnd))
+                node._cursorPos = start + 1
+            } else {
+                node._inputValue = val.slice(0, pos) + key.sequence + val.slice(pos)
+                node._cursorPos = pos + 1
+            }
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         }
 
         // Only emit when value actually changed (guard against spurious updates)
@@ -211,6 +415,10 @@ const textareaBehavior: ElementBehavior = {
         if (contentWidth <= 0 || contentHeight <= 0) return
 
         const value = getValue(node)
+        const cursorPos = node._cursorPos ?? value.length
+        const selStart = node._selectionStart ?? cursorPos
+        const selEnd = node._selectionEnd ?? cursorPos
+        const selectionMinMax = [Math.min(selStart, selEnd), Math.max(selStart, selEnd)]
 
         // Render placeholder when empty
         const placeholder = node.props.placeholder as string | undefined
@@ -225,7 +433,6 @@ const textareaBehavior: ElementBehavior = {
 
         // Build visual lines (with soft wrapping)
         const visualLines = buildVisualLines(value, contentWidth)
-        const cursorPos = node._cursorPos ?? value.length
         const { vLine: cursorVLine } = getVisualPos(visualLines, cursorPos)
 
         // Track content height for scrollbar rendering
@@ -255,11 +462,41 @@ const textareaBehavior: ElementBehavior = {
         scrollY = Math.min(scrollY, maxScroll)
         node.scrollY = scrollY
 
-        // Render visual lines
+        // Render visual lines with selection highlighting
         for (let i = 0; i < contentHeight; i++) {
             const vl = visualLines[scrollY + i]
             const text = vl ? vl.text : ''
-            buffer.write(contentX, contentY + i, text.padEnd(contentWidth, ' '), cellStyle)
+            const vLineStart = vl ? vl.startPos : -1
+
+            for (let j = 0; j < contentWidth; j++) {
+                const absPos = vLineStart + j
+                const char = j < text.length ? text[j] : ' '
+
+                if (absPos >= selectionMinMax[0] && absPos < selectionMinMax[1]) {
+                    // In selection - render with inverted colors
+                    const invertedStyle = {
+                        color: cellStyle.background ?? '#000000',
+                        background: cellStyle.color ?? '#ffffff',
+                        bold: cellStyle.bold ?? false,
+                        underline: cellStyle.underline ?? false,
+                        italic: cellStyle.italic ?? false,
+                        inverse: false,
+                        dim: cellStyle.dim ?? false,
+                    }
+                    buffer.writeCell(contentX + j, contentY + i, { char, ...invertedStyle })
+                } else {
+                    const normalStyle = {
+                        color: cellStyle.color ?? null,
+                        background: cellStyle.background ?? null,
+                        bold: cellStyle.bold ?? false,
+                        underline: cellStyle.underline ?? false,
+                        italic: cellStyle.italic ?? false,
+                        inverse: false,
+                        dim: cellStyle.dim ?? false,
+                    }
+                    buffer.writeCell(contentX + j, contentY + i, { char, ...normalStyle })
+                }
+            }
         }
     },
 

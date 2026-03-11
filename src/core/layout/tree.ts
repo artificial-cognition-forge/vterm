@@ -19,11 +19,19 @@ import { computeFlexLayout, getFlexConfig, isFlexContainer, resolveDimension } f
 import { getPadding, getMargin, getBorder, getBorderSide, applyConstraints } from "./box-model"
 import { isScrollableNode } from "./utils"
 import { wrapText, enableWrapCache, clearWrapCache } from "./text-wrapper"
+import { transformDeclaration } from "../css/declaration-transformer"
 
 /**
  * Counter for generating unique node IDs
  */
 let nodeIdCounter = 0
+
+/**
+ * Convert camelCase to kebab-case for CSS property names
+ */
+function camelToKebab(str: string): string {
+    return str.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`)
+}
 
 /**
  * Create a layout node
@@ -304,7 +312,21 @@ export class LayoutEngine {
             }
         }
 
-        // Inline props override class styles
+        // Inline style object overrides (from :style binding)
+        if (props.style) {
+            const styleObjs = Array.isArray(props.style) ? props.style : [props.style]
+            for (const styleObj of styleObjs) {
+                if (styleObj && typeof styleObj === 'object') {
+                    for (const [key, val] of Object.entries(styleObj)) {
+                        if (val === null || val === undefined) continue
+                        const cssProp = camelToKebab(key)
+                        transformDeclaration(cssProp, String(val), resolved)
+                    }
+                }
+            }
+        }
+
+        // Inline props override class styles (and :style)
         if (props.width !== undefined) resolved.width = props.width
         if (props.height !== undefined) resolved.height = props.height
         if (props.top !== undefined) resolved.top = props.top

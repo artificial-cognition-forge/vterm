@@ -46,6 +46,25 @@ const KEY_MAPPINGS: Record<string, string> = {
     "\x1b[2~": "insert",
     "\x1b[3~": "delete",
     "\x1b[Z": "shift-tab",
+    // Ctrl+Arrow keys (various terminal encodings)
+    "\x1b[1;5A": "ctrl-up",
+    "\x1b[1;5B": "ctrl-down",
+    "\x1b[1;5C": "ctrl-right",
+    "\x1b[1;5D": "ctrl-left",
+    "\x1bOA": "ctrl-up",      // Alternative encoding
+    "\x1bOB": "ctrl-down",    // Alternative encoding
+    "\x1bOC": "ctrl-right",   // Alternative encoding
+    "\x1bOD": "ctrl-left",    // Alternative encoding
+    // Ctrl+Shift+Arrow keys
+    "\x1b[1;6A": "ctrl-shift-up",
+    "\x1b[1;6B": "ctrl-shift-down",
+    "\x1b[1;6C": "ctrl-shift-right",
+    "\x1b[1;6D": "ctrl-shift-left",
+    // Shift+Arrow keys
+    "\x1b[1;2A": "shift-up",
+    "\x1b[1;2B": "shift-down",
+    "\x1b[1;2C": "shift-right",
+    "\x1b[1;2D": "shift-left",
     // F1-F12
     "\x1bOP": "f1",
     "\x1bOQ": "f2",
@@ -311,11 +330,19 @@ export class InputParser extends EventEmitter {
      * Creates a key event
      */
     private createKeyEvent(name: string, sequence: string): KeyEvent {
-        // Check for shift modifier in name
+        // Check for modifier prefixes in name
+        let ctrl = false
         let shift = false
         let actualName = name
 
-        if (name.startsWith("shift-")) {
+        if (name.startsWith("ctrl-shift-")) {
+            ctrl = true
+            shift = true
+            actualName = name.slice(11)
+        } else if (name.startsWith("ctrl-")) {
+            ctrl = true
+            actualName = name.slice(5)
+        } else if (name.startsWith("shift-")) {
             shift = true
             actualName = name.slice(6)
         }
@@ -323,7 +350,7 @@ export class InputParser extends EventEmitter {
         return {
             name: actualName,
             sequence,
-            ctrl: false,
+            ctrl,
             shift,
             meta: false,
         }

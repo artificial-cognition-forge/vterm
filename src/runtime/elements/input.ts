@@ -16,6 +16,28 @@ function ensureState(node: LayoutNode): void {
     if (node._inputValue === undefined) {
         node._inputValue = getValue(node)
         node._cursorPos = node._inputValue.length
+        node._selectionStart = node._cursorPos
+        node._selectionEnd = node._cursorPos
+    }
+}
+
+function findWordBoundary(text: string, pos: number, direction: 'left' | 'right'): number {
+    if (direction === 'left') {
+        if (pos <= 0) return 0
+        let i = pos - 1
+        // Skip whitespace/non-word chars
+        while (i >= 0 && !/\w/.test(text[i]!)) i--
+        // Skip word chars
+        while (i >= 0 && /\w/.test(text[i]!)) i--
+        return i + 1
+    } else {
+        if (pos >= text.length) return text.length
+        let i = pos
+        // Skip word chars
+        while (i < text.length && /\w/.test(text[i]!)) i++
+        // Skip whitespace/non-word chars
+        while (i < text.length && !/\w/.test(text[i]!)) i++
+        return i
     }
 }
 
@@ -25,33 +47,154 @@ const inputBehavior: ElementBehavior = {
 
         const val = node._inputValue!
         const pos = node._cursorPos!
+        let selStart = node._selectionStart ?? pos
+        let selEnd = node._selectionEnd ?? pos
+
+        // Handle Ctrl+A (select all)
+        if (key.ctrl && key.name === 'a') {
+            selStart = 0
+            selEnd = val.length
+            node._selectionStart = selStart
+            node._selectionEnd = selEnd
+            node._cursorPos = val.length
+            requestRender()
+            return
+        }
+
+        // Handle Ctrl+Shift+Left/Right for word selection
+        if (key.ctrl && key.shift && (key.name === 'left' || key.name === 'right')) {
+            // Anchor selection at current cursor if not already selecting
+            if (selStart === pos && selEnd === pos) {
+                selStart = pos
+            }
+            let newPos = pos
+            if (key.name === 'left') {
+                newPos = findWordBoundary(val, pos, 'left')
+            } else if (key.name === 'right') {
+                newPos = findWordBoundary(val, pos, 'right')
+            }
+            node._cursorPos = newPos
+            // Extend selection from original anchor
+            if (newPos < selStart) {
+                node._selectionStart = newPos
+                node._selectionEnd = selStart
+            } else {
+                node._selectionStart = selStart
+                node._selectionEnd = newPos
+            }
+            requestRender()
+            return
+        }
+
+        // Handle shift+arrow for selection
+        const isShift = key.shift ?? false
+        if (isShift && (key.name === 'left' || key.name === 'right' || key.name === 'home' || key.name === 'end')) {
+            // Anchor selection at current cursor if not already selecting
+            if (selStart === pos && selEnd === pos) {
+                selStart = pos
+            }
+            // Move cursor and extend selection
+            let newPos = pos
+            if (key.name === 'left') {
+                newPos = Math.max(0, pos - 1)
+            } else if (key.name === 'right') {
+                newPos = Math.min(val.length, pos + 1)
+            } else if (key.name === 'home') {
+                newPos = 0
+            } else if (key.name === 'end') {
+                newPos = val.length
+            }
+            node._cursorPos = newPos
+            // Extend selection from original anchor
+            if (newPos < selStart) {
+                node._selectionStart = newPos
+                node._selectionEnd = selStart
+            } else {
+                node._selectionStart = selStart
+                node._selectionEnd = newPos
+            }
+            requestRender()
+            return
+        }
+
+        // Clear selection on any non-shift movement
+        if (key.name === 'left' || key.name === 'right' || key.name === 'home' || key.name === 'end') {
+            selStart = pos
+            selEnd = pos
+        }
 
         if (key.name === 'backspace') {
-            if (pos > 0) {
+            if (selStart !== selEnd) {
+                // Delete selection
+                const start = Math.min(selStart, selEnd)
+                const end = Math.max(selStart, selEnd)
+                node._inputValue = val.slice(0, start) + val.slice(end)
+                node._cursorPos = start
+                node._selectionStart = start
+                node._selectionEnd = start
+            } else if (pos > 0) {
                 node._inputValue = val.slice(0, pos - 1) + val.slice(pos)
                 node._cursorPos = pos - 1
+                node._selectionStart = pos - 1
+                node._selectionEnd = pos - 1
             }
         } else if (key.name === 'delete') {
-            node._inputValue = val.slice(0, pos) + val.slice(pos + 1)
+            if (selStart !== selEnd) {
+                const start = Math.min(selStart, selEnd)
+                const end = Math.max(selStart, selEnd)
+                node._inputValue = val.slice(0, start) + val.slice(end)
+                node._cursorPos = start
+                node._selectionStart = start
+                node._selectionEnd = start
+            } else {
+                node._inputValue = val.slice(0, pos) + val.slice(pos + 1)
+                node._selectionStart = pos
+                node._selectionEnd = pos
+            }
+        } else if (key.ctrl && key.name === 'left') {
+            // Ctrl+Left: move to start of previous word
+            node._cursorPos = findWordBoundary(val, pos, 'left')
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
+        } else if (key.ctrl && key.name === 'right') {
+            // Ctrl+Right: move to start of next word
+            node._cursorPos = findWordBoundary(val, pos, 'right')
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (key.name === 'left') {
             node._cursorPos = Math.max(0, pos - 1)
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (key.name === 'right') {
             node._cursorPos = Math.min(val.length, pos + 1)
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         } else if (key.name === 'home') {
             node._cursorPos = 0
+            node._selectionStart = 0
+            node._selectionEnd = 0
         } else if (key.name === 'end') {
             node._cursorPos = val.length
+            node._selectionStart = val.length
+            node._selectionEnd = val.length
         } else if (key.name === 'enter') {
             const changeHandler = node.events.get('change')
             if (changeHandler) changeHandler(node._inputValue!)
         } else if (!key.ctrl && !key.meta && key.sequence && key.sequence.length === 1) {
-            node._inputValue = val.slice(0, pos) + key.sequence + val.slice(pos)
-            node._cursorPos = pos + 1
+            // Typing replaces selection if any
+            if (selStart !== selEnd) {
+                const start = Math.min(selStart, selEnd)
+                node._inputValue = val.slice(0, start) + key.sequence + val.slice(Math.max(selStart, selEnd))
+                node._cursorPos = start + 1
+            } else {
+                node._inputValue = val.slice(0, pos) + key.sequence + val.slice(pos)
+                node._cursorPos = pos + 1
+            }
+            node._selectionStart = node._cursorPos
+            node._selectionEnd = node._cursorPos
         }
 
         // Only emit the reactive update when the value actually changed.
-        // Emitting unconditionally would overwrite any programmatic reset that a
-        // useKeys handler (which fires before handleKey) already applied to the ref.
         if (node._inputValue !== val) {
             emitUpdate(node)
         }
@@ -81,11 +224,46 @@ const inputBehavior: ElementBehavior = {
         }
 
         const cursorPos = node._cursorPos ?? value.length
+        const selStart = node._selectionStart ?? cursorPos
+        const selEnd = node._selectionEnd ?? cursorPos
 
         // Scroll viewport so cursor is always visible
         const scrollOffset = Math.max(0, cursorPos - contentWidth + 1)
         const visible = value.slice(scrollOffset, scrollOffset + contentWidth)
-        buffer.write(contentX, contentY, visible.padEnd(contentWidth, ' '), cellStyle)
+
+        // Render text with selection highlighting
+        const selectionMinMax = [Math.min(selStart, selEnd), Math.max(selStart, selEnd)]
+        const paddedVisible = visible.padEnd(contentWidth, ' ')
+
+        for (let i = 0; i < contentWidth; i++) {
+            const absPos = scrollOffset + i
+            const char = paddedVisible[i] ?? ' '
+
+            if (absPos >= selectionMinMax[0] && absPos < selectionMinMax[1]) {
+                // In selection - render with inverted colors
+                buffer.writeCell(contentX + i, contentY, {
+                    char,
+                    color: cellStyle.background ?? null,
+                    background: cellStyle.color ?? null,
+                    bold: cellStyle.bold ?? false,
+                    underline: cellStyle.underline ?? false,
+                    italic: cellStyle.italic ?? false,
+                    inverse: false,
+                    dim: cellStyle.dim ?? false,
+                })
+            } else {
+                buffer.writeCell(contentX + i, contentY, {
+                    char,
+                    color: cellStyle.color ?? null,
+                    background: cellStyle.background ?? null,
+                    bold: cellStyle.bold ?? false,
+                    underline: cellStyle.underline ?? false,
+                    italic: cellStyle.italic ?? false,
+                    inverse: false,
+                    dim: cellStyle.dim ?? false,
+                })
+            }
+        }
     },
 
     getCursorPos(node: LayoutNode): { x: number; y: number } | null {

@@ -273,6 +273,9 @@ export interface LayoutNode {
     // Interactive element state (for input/textarea nodes)
     _inputValue?: string
     _cursorPos?: number
+    _selectionStart?: number
+    _selectionEnd?: number
+    _prevCursorPos?: number
 
     // Style cache (for performance optimization)
     _cachedEffectiveStyle?: VisualStyle
