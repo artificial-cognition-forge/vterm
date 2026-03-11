@@ -79,7 +79,9 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         }
 
         try {
-            interactionManager.handleMouseEvent(mouseEvent, currentLayoutRoot)
+            if (currentLayoutRoot) {
+                interactionManager.handleMouseEvent(mouseEvent, currentLayoutRoot)
+            }
         } catch (err) {
             // User event handler threw — route to error page instead of crashing
             if (vtermError.value === null) setVTermError(err, 'event')
@@ -175,11 +177,40 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         const routesPath = resolve(process.cwd(), ".vterm/routes.ts")
         const routesModule = await import(routesPath + "?t=" + Date.now())
         if (routesModule.routes && routesModule.routes.length > 0) {
+            // Load components one by one, catching errors for individual components
+            // so that one bad component doesn't break the entire routing
             routes = await Promise.all(
                 routesModule.routes.map(async (route: any) => {
                     if (route.componentPath) {
-                        const component = await loadSFC(route.componentPath)
-                        return { ...route, component }
+                        try {
+                            const component = await loadSFC(route.componentPath)
+                            return { ...route, component }
+                        } catch (componentError) {
+                            // Create an error component that displays the compilation error
+                            const { defineComponent, h } = await import("vue")
+                            const errorMsg = componentError instanceof Error
+                                ? componentError.message
+                                : String(componentError)
+                            const component = defineComponent({
+                                name: 'ComponentError',
+                                setup() {
+                                    return () => h("div", {
+                                        width: "100%",
+                                        height: "100%",
+                                        style: {
+                                            color: "red",
+                                            padding: "1",
+                                            overflow: "hidden"
+                                        }
+                                    }, [
+                                        h("p", { style: { color: "red" } }, `❌ Failed to load component`),
+                                        h("p", { style: { color: "yellow" } }, `Path: ${route.componentPath}`),
+                                        h("p", { style: { color: "white" } }, `Error: ${errorMsg}`),
+                                    ])
+                                },
+                            })
+                            return { ...route, component }
+                        }
                     }
                     return route
                 })
