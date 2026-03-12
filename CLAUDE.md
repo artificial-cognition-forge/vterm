@@ -275,6 +275,37 @@ Use `@press` for button/interactive element clicks (not `@click`). Keyboard even
 
 All composables must be called inside a component `<script setup>` context.
 
+### Custom Composables Pattern
+
+When creating custom composables in your VTerm app:
+
+1. **Export as a function** (not a singleton):
+```ts
+// ✓ CORRECT
+export function useMyComposable() {
+    const state = ref(initialValue)
+    return { state, setState: (v) => { state.value = v } }
+}
+
+// ✗ WRONG - Don't export const directly
+// export const useMyComposable = () => { ... }
+```
+
+2. **Module-level state for singletons** is fine:
+```ts
+// Use module-level reactive for shared singleton state
+const moduleState = reactive({ count: 0 })
+
+export function useSharedState() {
+    return {
+        state: moduleState,
+        increment: () => { moduleState.count++ }
+    }
+}
+```
+
+3. **Rebuild after adding composables**: After creating new composables, run `vterm build` to regenerate `.vterm/auto-imports.d.ts`. The dev server will pick up the changes on next reload.
+
 ### `useKeys(keys, handler)`
 
 Bind keyboard shortcuts. Automatically unregistered on component unmount.

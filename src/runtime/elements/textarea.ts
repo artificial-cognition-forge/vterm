@@ -369,7 +369,8 @@ const textareaBehavior: ElementBehavior = {
             }
             node._selectionStart = node._cursorPos
             node._selectionEnd = node._cursorPos
-        } else if (key.name === 'enter') {
+        } else if (key.name === 'enter' && key.shift) {
+            // Shift+Enter inserts a newline (normal textarea behavior)
             if (selStart !== selEnd) {
                 const start = Math.min(selStart, selEnd)
                 const end = Math.max(selStart, selEnd)
@@ -381,6 +382,10 @@ const textareaBehavior: ElementBehavior = {
             }
             node._selectionStart = node._cursorPos
             node._selectionEnd = node._cursorPos
+        } else if (key.name === 'enter') {
+            // Bare Enter is not consumed here - let useKeys handlers take priority
+            // Applications can bind useKeys('enter', ...) to handle submission
+            return
         } else if (!key.ctrl && !key.meta && key.sequence && key.sequence.length === 1) {
             // Typing replaces selection if any
             if (selStart !== selEnd) {

@@ -183,7 +183,9 @@ let runtimeComposablesCache: Record<string, any> | null = null
  */
 async function getModuleScope(): Promise<Record<string, any>> {
     if (!runtimeComposablesCache) {
-        runtimeComposablesCache = await getRuntimeComposables()
+        // Pass STATIC_MODULE_SCOPE so composables are executed in VTerm's Vue context,
+        // preventing a dual-Vue-instance issue that breaks cross-composable reactivity.
+        runtimeComposablesCache = await getRuntimeComposables(STATIC_MODULE_SCOPE)
     }
     return { ...STATIC_MODULE_SCOPE, ...runtimeComposablesCache }
 }

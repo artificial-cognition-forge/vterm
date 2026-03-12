@@ -1,5 +1,6 @@
 import { createUnimport } from 'unimport'
 import { resolve } from 'path'
+import { loadComposableInScope } from './composable-loader'
 
 /**
  * Auto-import configuration for vterm apps
@@ -147,10 +148,14 @@ export function generateTsConfig(): string {
 }
 
 /**
- * Get runtime composables for the module scope
- * Returns an object with all auto-discovered composables
+ * Get runtime composables for the module scope.
+ *
+ * @param baseScope - VTerm's module scope (ref, reactive, useRender, etc.).
+ *   When provided, composable TS files are executed inside this scope so they
+ *   use the same Vue instance as SFC components. Without it, files fall back to
+ *   regular import(), which may resolve a different Vue and break reactivity.
  */
-export async function getRuntimeComposables(): Promise<Record<string, any>> {
+export async function getRuntimeComposables(baseScope: Record<string, any> = {}): Promise<Record<string, any>> {
   if (!unimportInstance) {
     return {}
   }
@@ -158,20 +163,43 @@ export async function getRuntimeComposables(): Promise<Record<string, any>> {
   const imports = await unimportInstance.getImports()
   const composables: Record<string, any> = {}
 
+  // Cache per-file results so each file is only loaded once even when multiple
+  // exports come from the same composable.
+  const fileCache = new Map<string, Promise<Record<string, any>>>()
+
   for (const imp of imports) {
     // Only include imports from local composable/utility files.
     // Skip framework imports and .vue component files — components are
     // handled by loadSFC's import extraction, not by dynamic require here.
-    if (imp.from &&
-        !imp.from.startsWith('@arcforge/vterm') &&
-        !imp.from.startsWith('vue') &&
-        !imp.from.endsWith('.vue')) {
-      try {
-        const module = await import(imp.from)
-        composables[imp.as || imp.name] = module[imp.name]
-      } catch (error) {
-        console.error(`Failed to load composable ${imp.name} from ${imp.from}:`, error)
+    if (!imp.from ||
+        imp.from.startsWith('@arcforge/vterm') ||
+        imp.from.startsWith('vue') ||
+        imp.from.endsWith('.vue')) {
+      continue
+    }
+
+    try {
+      // Load in VTerm's module scope so the composable uses the same Vue
+      // instance as SFC components, keeping reactivity in a single system.
+      if (!fileCache.has(imp.from)) {
+        fileCache.set(imp.from, loadComposableInScope(imp.from, baseScope))
       }
+      const loaded = await fileCache.get(imp.from)!
+      if (loaded[imp.name] !== undefined) {
+        composables[imp.as || imp.name] = loaded[imp.name]
+        continue
+      }
+    } catch {
+      // Fall through to the regular import() fallback below.
+    }
+
+    // Fallback: regular import() — may resolve a different Vue instance but
+    // is better than silently omitting the export.
+    try {
+      const module = await import(imp.from)
+      composables[imp.as || imp.name] = module[imp.name]
+    } catch (error) {
+      console.error(`Failed to load composable ${imp.name} from ${imp.from}:`, error)
     }
   }
 

@@ -146,9 +146,15 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         queueMicrotask(performRender)
     }
 
-    // Immediate render function (bypasses throttling)
+    // Immediate render function — re-runs the full layout pipeline then paints.
+    // Must call performLayout (not just driver.render) so that reactive state
+    // changes made before this call are reflected in the screen buffer.
     const immediateRender = () => {
-        driver.render()
+        if (currentLayoutRoot) {
+            performLayout(currentLayoutRoot)
+        } else {
+            driver.render()
+        }
     }
 
     // Allow the async syntax highlighter to trigger re-renders when tokens are ready

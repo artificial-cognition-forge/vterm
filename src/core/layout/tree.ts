@@ -5,6 +5,7 @@
  */
 
 import type { VNode } from "vue"
+import { unref } from "vue"
 import type {
     LayoutNode,
     LayoutProperties,
@@ -365,7 +366,9 @@ export class LayoutEngine {
                     for (const [key, val] of Object.entries(styleObj)) {
                         if (val === null || val === undefined) continue
                         const cssProp = camelToKebab(key)
-                        transformDeclaration(cssProp, String(val), resolved, this.cssVariables)
+                        // Unwrap Vue refs/computed values before stringifying
+                        const unwrappedVal = unref(val)
+                        transformDeclaration(cssProp, String(unwrappedVal), resolved, this.cssVariables)
                     }
                 }
             }

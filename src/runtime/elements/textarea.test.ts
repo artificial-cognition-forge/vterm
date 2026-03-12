@@ -69,10 +69,10 @@ describe('textarea element - handleKey - basic operations', () => {
     expect(node._cursorPos).toBe(4)
   })
 
-  test('enter inserts newline at cursor', () => {
+  test('shift+enter inserts newline at cursor', () => {
     const node = makeNode('hello world', 5)
     const behavior = getElement('textarea')!
-    behavior.handleKey!(node, key('enter'), noop)
+    behavior.handleKey!(node, { ...key('enter'), shift: true }, noop)
     expect(node._inputValue).toBe('hello\n world')
     expect(node._cursorPos).toBe(6)
   })
