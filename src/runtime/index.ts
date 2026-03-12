@@ -45,7 +45,7 @@ export {
 /**
  * Composables for terminal integration
  */
-export { useKeys, useScreen, useFocus, useRender, useTerminal } from "../core/platform/composables/exports"
+export { useKeys, useScreen, useFocus, useRender, useTerminal, useProcess } from "../core/platform/composables/exports"
 
 /**
  * Storage utilities

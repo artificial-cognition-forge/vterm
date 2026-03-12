@@ -1,4 +1,5 @@
 import { transform } from "sucrase"
+import { resolve, dirname } from "path"
 
 /**
  * Load a TypeScript composable file in VTerm's module scope.
@@ -24,6 +25,41 @@ export async function loadComposableInScope(
         disableESTransforms: true,
     })
     let script = transformed.code
+
+    // Extract external package imports before stripping them so we can resolve
+    // them and inject their named exports into the scope.
+    // Matches: import { A, B as C } from "pkg" (non-relative, non-type)
+    const externalImports: Array<{ names: Array<{ imported: string; local: string }>; pkg: string }> = []
+    const importRegex = /^\s*import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/gm
+    let match: RegExpExecArray | null
+    while ((match = importRegex.exec(script)) !== null) {
+        const pkg = match[2]!
+        // Skip relative imports and vue/vterm (already in scope)
+        if (pkg.startsWith('.') || pkg === 'vue' || pkg.startsWith('@arcforge/vterm')) continue
+        const names = match[1]!.split(',').map(s => s.trim()).filter(Boolean).map(s => {
+            const [imported, local] = s.split(/\s+as\s+/)
+            return { imported: imported!.trim(), local: (local ?? imported)!.trim() }
+        })
+        externalImports.push({ names, pkg })
+    }
+
+    // Resolve external packages using Bun.resolve relative to the composable's
+    // own directory so the user project's node_modules are used (not vterm's).
+    const fileDir = dirname(filepath)
+    for (const { names, pkg } of externalImports) {
+        try {
+            const resolved = await Bun.resolve(pkg, fileDir)
+            const mod = await import(resolved)
+            for (const { imported, local } of names) {
+                const val = mod[imported] ?? mod.default?.[imported]
+                if (val !== undefined) {
+                    ;(moduleScope as any)[local] = val
+                }
+            }
+        } catch {
+            // Package not resolvable — leave undefined, will surface at runtime
+        }
+    }
 
     // Collect exported names so we can return them from the new Function wrapper
     const exportNames: string[] = []
@@ -61,8 +97,13 @@ export async function loadComposableInScope(
 
     if (exportNames.length === 0) return {}
 
-    const code = `"use strict";\n${script}\nreturn { ${exportNames.join(", ")} };`
+    // Use `with` so identifier lookups resolve dynamically against the scope
+    // object at *call time*. This means composables loaded later (e.g. useModels)
+    // are visible to composables that reference them (e.g. useChat), even when
+    // the scope object is mutated after the Function is constructed.
+    // Note: `with` requires sloppy mode (no "use strict" on the outer wrapper).
+    const code = `with (__scope__) {\n${script}\nreturn { ${exportNames.join(", ")} };\n}`
 
-    const factory = new Function(...Object.keys(moduleScope), code)
-    return factory(...Object.values(moduleScope))
+    const factory = new Function("__scope__", code)
+    return factory(moduleScope)
 }

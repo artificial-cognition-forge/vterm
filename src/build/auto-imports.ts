@@ -61,6 +61,7 @@ export async function initAutoImports(cwd: string = process.cwd()) {
           'useFocus',
           'useRender',
           'useTerminal',
+          'useProcess',
           // Storage
           'useStore',
           'createStore',
@@ -163,14 +164,60 @@ export async function getRuntimeComposables(baseScope: Record<string, any> = {})
   const imports = await unimportInstance.getImports()
   const composables: Record<string, any> = {}
 
-  // Cache per-file results so each file is only loaded once even when multiple
-  // exports come from the same composable.
+  // Collect unique local composable files to load
+  const localFiles = new Set<string>()
+  for (const imp of imports) {
+    if (!imp.from ||
+        imp.from.startsWith('@arcforge/vterm') ||
+        imp.from.startsWith('vue') ||
+        imp.from.endsWith('.vue')) {
+      continue
+    }
+    localFiles.add(imp.from)
+  }
+
+  // Load all files with a shared scope object that is mutated as exports are
+  // collected. Because loadComposableInScope creates a new Function that closes
+  // over the scope values at *call time*, we pass a Proxy so that any lookup
+  // inside a composable always sees the latest state of the composables map —
+  // even if the dependency was registered after the Function was constructed.
+  const liveScope = new Proxy({} as Record<string, any>, {
+    get(_, key: string) {
+      return composables[key] ?? baseScope[key]
+    },
+    set(_, key: string, value: any) {
+      composables[key] = value
+      return true
+    },
+    has(_, key: string) {
+      return key in composables || key in baseScope
+    },
+    ownKeys() {
+      return [...new Set([...Object.keys(composables), ...Object.keys(baseScope)])]
+    },
+    getOwnPropertyDescriptor(_, key: string) {
+      const val = composables[key] ?? baseScope[key]
+      if (val !== undefined) return { value: val, writable: true, enumerable: true, configurable: true }
+      return undefined
+    }
+  })
+
   const fileCache = new Map<string, Promise<Record<string, any>>>()
+  for (const from of localFiles) {
+    if (!fileCache.has(from)) {
+      fileCache.set(from, loadComposableInScope(from, liveScope))
+    }
+    try {
+      const loaded = await fileCache.get(from)!
+      for (const [key, val] of Object.entries(loaded)) {
+        composables[key] = val
+      }
+    } catch (error) {
+      console.error(`Failed to load composable from ${from}:`, error)
+    }
+  }
 
   for (const imp of imports) {
-    // Only include imports from local composable/utility files.
-    // Skip framework imports and .vue component files — components are
-    // handled by loadSFC's import extraction, not by dynamic require here.
     if (!imp.from ||
         imp.from.startsWith('@arcforge/vterm') ||
         imp.from.startsWith('vue') ||
@@ -178,19 +225,9 @@ export async function getRuntimeComposables(baseScope: Record<string, any> = {})
       continue
     }
 
-    try {
-      // Load in VTerm's module scope so the composable uses the same Vue
-      // instance as SFC components, keeping reactivity in a single system.
-      if (!fileCache.has(imp.from)) {
-        fileCache.set(imp.from, loadComposableInScope(imp.from, baseScope))
-      }
-      const loaded = await fileCache.get(imp.from)!
-      if (loaded[imp.name] !== undefined) {
-        composables[imp.as || imp.name] = loaded[imp.name]
-        continue
-      }
-    } catch {
-      // Fall through to the regular import() fallback below.
+    if (composables[imp.name] !== undefined) {
+      if (imp.as && imp.as !== imp.name) composables[imp.as] = composables[imp.name]
+      continue
     }
 
     // Fallback: regular import() — may resolve a different Vue instance but
