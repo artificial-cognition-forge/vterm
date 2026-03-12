@@ -204,6 +204,29 @@ export interface VTermOptions {
 
     /** UI customization (scrollbar, cursor, etc.) */
     ui?: UIConfig
+
+    /**
+     * Reactive values to inject into all components.
+     * Each key is injectable via inject(key) inside any component.
+     *
+     * @example
+     * const log = ref<string[]>([])
+     * const app = await vterm({ entry: '...', context: { log } })
+     * log.value.push('new event') // components see this instantly
+     */
+    context?: Record<string, unknown>
+}
+
+/**
+ * Options for vtermApp.snapshot()
+ */
+export interface SnapshotOptions {
+    /**
+     * Output format:
+     * - 'text' (default): plain characters, rows joined with '\n'
+     * - 'ansi': ANSI-escaped string with colors/styles preserved
+     */
+    format?: 'text' | 'ansi'
 }
 
 /**
@@ -221,6 +244,17 @@ export interface VTermApp {
 
     /** Manually trigger a screen render */
     render: () => void
+
+    /**
+     * Capture the current screen as a string snapshot.
+     * Default format is plain text (characters only, rows joined with '\n').
+     * Pass { format: 'ansi' } to include ANSI color/style escape codes.
+     *
+     * @example
+     * const text = vtermApp.snapshot()
+     * const styled = vtermApp.snapshot({ format: 'ansi' })
+     */
+    snapshot: (opts?: SnapshotOptions) => string
 }
 
 /**

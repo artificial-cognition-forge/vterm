@@ -62,6 +62,7 @@ export class InteractionManager {
             node.type === "button" ||
             node.type === "input" ||
             node.type === "textarea" ||
+            node.type === "editor" ||
             node.type === "select" ||
             (node.type === "a" && !!node.props.href)
 
@@ -86,7 +87,7 @@ export class InteractionManager {
         // Handle different event types
         switch (event.type) {
             case "mousemove":
-                this.handleMouseMove(targetNode)
+                this.handleMouseMove(targetNode, event)
                 break
 
             case "mousedown":
@@ -214,7 +215,7 @@ export class InteractionManager {
     /**
      * Handle mouse move
      */
-    private handleMouseMove(targetNode: LayoutNode | null): void {
+    private handleMouseMove(targetNode: LayoutNode | null, event: MouseEvent): void {
         if (targetNode !== this.hoveredNode) {
             // Fire mouseout on previous hovered node
             if (this.hoveredNode) {
@@ -237,6 +238,14 @@ export class InteractionManager {
 
             // Notify state change
             this.notifyStateChange()
+        }
+
+        // Dispatch drag move to the active (mousedown) node's behavior if button is held
+        if (this.activeNode) {
+            const behavior = getElement(this.activeNode.type)
+            if (behavior?.handleMouseMove) {
+                behavior.handleMouseMove(this.activeNode, event, () => this.renderCallback?.())
+            }
         }
 
         // Always fire mousemove on the target
@@ -280,6 +289,14 @@ export class InteractionManager {
      * Handle mouse up
      */
     private handleMouseUp(targetNode: LayoutNode | null, event: MouseEvent): void {
+        // Notify the active node's behavior of mouseup (e.g. end drag-select)
+        if (this.activeNode) {
+            const behavior = getElement(this.activeNode.type)
+            if (behavior?.handleMouseUp) {
+                behavior.handleMouseUp(this.activeNode, event, () => this.renderCallback?.())
+            }
+        }
+
         // Clear active state
         const wasActive = this.activeNode
         this.activeNode = null
@@ -375,7 +392,7 @@ export class InteractionManager {
      * Find the nearest scrollable ancestor node (or the node itself)
      */
     private findScrollableNode(node: LayoutNode): LayoutNode | null {
-        if (isScrollableNode(node) || node.type === 'textarea') return node
+        if (isScrollableNode(node) || node.type === 'textarea' || node.type === 'editor') return node
         if (node.parent) return this.findScrollableNode(node.parent)
         return null
     }

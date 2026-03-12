@@ -43,6 +43,17 @@ export interface ElementBehavior {
     handleMouseDown?(node: LayoutNode, event: MouseEvent, requestRender: () => void): void
 
     /**
+     * Handle a mouse move event while a button is held (drag).
+     * Only called when the mouse button is down — used for drag-to-select.
+     */
+    handleMouseMove?(node: LayoutNode, event: MouseEvent, requestRender: () => void): void
+
+    /**
+     * Handle a mouse up event on this element.
+     */
+    handleMouseUp?(node: LayoutNode, event: MouseEvent, requestRender: () => void): void
+
+    /**
      * Render the element's content into the buffer.
      * Called by the buffer-renderer instead of the generic box/text path.
      */

@@ -2,6 +2,7 @@ import type { ElementBehavior, ElementRenderContext } from './types'
 import type { LayoutNode } from '../../core/layout/types'
 import type { KeyEvent } from '../terminal/input'
 import { registerElement } from './registry'
+import { findWordBoundary } from './text-utils'
 
 function getValue(node: LayoutNode): string {
     return node._inputValue ?? String(node.props.value ?? node.props.modelValue ?? '')
@@ -18,26 +19,6 @@ function ensureState(node: LayoutNode): void {
         node._cursorPos = node._inputValue.length
         node._selectionStart = node._cursorPos
         node._selectionEnd = node._cursorPos
-    }
-}
-
-function findWordBoundary(text: string, pos: number, direction: 'left' | 'right'): number {
-    if (direction === 'left') {
-        if (pos <= 0) return 0
-        let i = pos - 1
-        // Skip whitespace/non-word chars
-        while (i >= 0 && !/\w/.test(text[i]!)) i--
-        // Skip word chars
-        while (i >= 0 && /\w/.test(text[i]!)) i--
-        return i + 1
-    } else {
-        if (pos >= text.length) return text.length
-        let i = pos
-        // Skip word chars
-        while (i < text.length && /\w/.test(text[i]!)) i++
-        // Skip whitespace/non-word chars
-        while (i < text.length && !/\w/.test(text[i]!)) i++
-        return i
     }
 }
 

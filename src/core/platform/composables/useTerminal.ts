@@ -1,5 +1,6 @@
 import { computed, inject, ref, onMounted, onUnmounted } from "vue"
 import { ScreenSymbol } from "./useScreen"
+import { useConsole } from "./useConsole"
 
 /**
  * Access the terminal state (width, height)
@@ -48,5 +49,10 @@ export function useTerminal() {
 		 * Current terminal height in rows (reactive)
 		 */
 		height: computed(() => terminalHeight.value),
+
+		/**
+		 * Captured console output — reactive refs for log, warn, info, error entries
+		 */
+		console: useConsole(),
 	}
 }

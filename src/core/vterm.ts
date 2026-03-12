@@ -23,7 +23,8 @@ import { installRouter, loadDefaultRoutes, getGlobalRouter } from "./router"
 import { getElement } from "../runtime/elements/index"
 import { setHighlightCallback, configureHighlighter } from "../runtime/elements/highlighter"
 import { setVTermError, vtermError } from "./platform/error-state"
-import type { VTermOptions, VTermApp } from "../types/types"
+import { installConsoleCapture, uninstallConsoleCapture } from "./platform/composables/useConsole"
+import type { VTermOptions, VTermApp, SnapshotOptions } from "../types/types"
 import type { ParsedStyles } from "./css/types"
 import type { LayoutNode } from "./layout/types"
 
@@ -31,7 +32,10 @@ import type { LayoutNode } from "./layout/types"
  * Create a terminal app using custom terminal rendering
  */
 export async function vterm(options: VTermOptions): Promise<VTermApp> {
-    const { entry, layout, onMounted, quitKeys = ['C-c'], highlight, selection, ui } = options
+    const { entry, layout, onMounted, quitKeys = ['C-c'], highlight, selection, ui, context } = options
+
+    // Capture console output before anything else so no early logs are missed
+    installConsoleCapture()
 
     // Configure syntax highlighter before any components load
     if (highlight) configureHighlighter(highlight)
@@ -445,6 +449,13 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     // Provide layouts registry for RouterView
     app.provide('vterm-layouts', layoutsMap)
 
+    // Inject user-supplied context values so all components can inject them by key
+    if (context) {
+        for (const [key, value] of Object.entries(context)) {
+            app.provide(key, value)
+        }
+    }
+
     // Load platform 404 component for use as not-found fallback
     let notFoundComponent: any = undefined
     try {
@@ -507,11 +518,108 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     process.on('uncaughtException', _uncaughtHandler)
     process.on('unhandledRejection', _rejectionHandler)
 
+    // Serialize the current screen buffer to a string snapshot
+    const snapshotFn = (opts?: SnapshotOptions): string => {
+        const buffer = driver.getBuffer()
+        if (!opts?.format || opts.format === 'text') {
+            return buffer.getLines().join('\n')
+        }
+
+        // ANSI format: emit escape codes for color/style changes
+        const lines: string[] = []
+        for (let y = 0; y < buffer.height; y++) {
+            let line = ''
+            let prevColor: string | null = null
+            let prevBg: string | null = null
+            let prevBold = false
+            let prevUnderline = false
+            let prevItalic = false
+            let prevDim = false
+            let prevInverse = false
+            let needsReset = false
+
+            for (let x = 0; x < buffer.width; x++) {
+                const cell = buffer.getCell(x, y)!
+                const styleChanged =
+                    cell.color !== prevColor ||
+                    cell.background !== prevBg ||
+                    cell.bold !== prevBold ||
+                    cell.underline !== prevUnderline ||
+                    cell.italic !== prevItalic ||
+                    cell.dim !== prevDim ||
+                    cell.inverse !== prevInverse
+
+                if (styleChanged) {
+                    if (needsReset) line += '\x1b[0m'
+                    const codes: number[] = []
+                    if (cell.bold) codes.push(1)
+                    if (cell.dim) codes.push(2)
+                    if (cell.italic) codes.push(3)
+                    if (cell.underline) codes.push(4)
+                    if (cell.inverse) codes.push(7)
+                    if (cell.color) {
+                        const named: Record<string, number> = {
+                            black: 30, red: 31, green: 32, yellow: 33, blue: 34,
+                            magenta: 35, cyan: 36, white: 37, gray: 90, grey: 90,
+                            brightred: 91, brightgreen: 92, brightyellow: 93,
+                            brightblue: 94, brightmagenta: 95, brightcyan: 96, brightwhite: 97,
+                        }
+                        const n = named[cell.color.toLowerCase()]
+                        if (n !== undefined) {
+                            codes.push(n)
+                        } else if (cell.color.startsWith('#')) {
+                            const r = parseInt(cell.color.slice(1, 3), 16)
+                            const g = parseInt(cell.color.slice(3, 5), 16)
+                            const b = parseInt(cell.color.slice(5, 7), 16)
+                            line += `\x1b[38;2;${r};${g};${b}m`
+                        }
+                    }
+                    if (cell.background) {
+                        const namedBg: Record<string, number> = {
+                            black: 40, red: 41, green: 42, yellow: 43, blue: 44,
+                            magenta: 45, cyan: 46, white: 47, gray: 100, grey: 100,
+                            brightred: 101, brightgreen: 102, brightyellow: 103,
+                            brightblue: 104, brightmagenta: 105, brightcyan: 106, brightwhite: 107,
+                        }
+                        const n = namedBg[cell.background.toLowerCase()]
+                        if (n !== undefined) {
+                            codes.push(n)
+                        } else if (cell.background.startsWith('#')) {
+                            const r = parseInt(cell.background.slice(1, 3), 16)
+                            const g = parseInt(cell.background.slice(3, 5), 16)
+                            const b = parseInt(cell.background.slice(5, 7), 16)
+                            line += `\x1b[48;2;${r};${g};${b}m`
+                        }
+                    }
+                    if (codes.length > 0) line += `\x1b[${codes.join(';')}m`
+
+                    needsReset = cell.bold || cell.dim || cell.italic || cell.underline ||
+                        cell.inverse || cell.color !== null || cell.background !== null
+                    prevColor = cell.color
+                    prevBg = cell.background
+                    prevBold = cell.bold
+                    prevUnderline = cell.underline
+                    prevItalic = cell.italic
+                    prevDim = cell.dim
+                    prevInverse = cell.inverse
+                }
+                line += cell.char
+            }
+            if (needsReset) line += '\x1b[0m'
+            lines.push(line)
+        }
+        return lines.join('\n')
+    }
+
     // Create app control object
     const vtermApp: VTermApp = {
         screen: driver as any, // Expose driver as screen for backwards compatibility
         app,
+        snapshot: snapshotFn,
         async unmount() {
+            // Restore console methods
+            uninstallConsoleCapture()
+
             // Remove global error handlers
             process.off('uncaughtException', _uncaughtHandler)
             process.off('unhandledRejection', _rejectionHandler)

@@ -53,6 +53,7 @@ function applyStyleObject(
 const UA_LAYOUT_PROPS: Record<string, Partial<LayoutProperties>> = {
     input:    { border: { width: 0 } },
     textarea: { border: { width: 0 } },
+    editor:   { border: { width: 0 }, scrollable: true, scrollableY: true, alwaysScroll: true } as any,
     button:   { border: { width: 0 } },
     select:   { border: { width: 0 } },
 }

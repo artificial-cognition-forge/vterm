@@ -280,6 +280,16 @@ export interface LayoutNode {
     _selectionEnd?: number
     _prevCursorPos?: number
 
+    // Editor element state
+    _editorMode?: 'normal' | 'insert'
+    _editorYankBuffer?: string    // line yank register for dd/yy/p
+    _editorPendingKey?: string    // for two-key sequences like 'dd', 'gg'
+    _editorStickyCol?: number     // remembered column for up/down navigation
+    _editorDragActive?: boolean   // true while mouse button held for drag-select
+    _editorSelAnchor?: number     // selection anchor for drag / shift-click
+    _editorLastClickTime?: number // timestamp of last mousedown (double-click detection)
+    _editorLastClickPos?: number  // cursor pos of last mousedown (double-click detection)
+
     // Style cache (for performance optimization)
     _cachedEffectiveStyle?: VisualStyle
     _cachedStyleState?: string  // Tracks hover|focus|active|none state

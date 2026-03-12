@@ -55,4 +55,5 @@ export { useStore, createStore, type Store, type StoreOptions } from "../core/pl
 /**
  * Config primitive and page metadata
  */
-export { defineVtermConfig, definePageMeta, type VTermConfig, type PageMeta } from "../types/types"
+export { defineVtermConfig, definePageMeta, type VTermConfig, type PageMeta, type VTermApp, type VTermOptions, type SnapshotOptions } from "../types/types"
+export { vterm } from "../core/vterm"

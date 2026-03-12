@@ -277,7 +277,7 @@ export class RenderingPass {
       }
 
       // Render scrollbar on top of children (text pass, after content is rendered)
-      if (this.isTextPass && (isScrollableNode(node) || node.type === 'textarea') && node.layout) {
+      if (this.isTextPass && (isScrollableNode(node) || node.type === 'textarea' || node.type === 'editor') && node.layout) {
         this.renderScrollbar(node, parentScrollY)
       }
     }

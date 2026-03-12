@@ -2,6 +2,7 @@ import type { ElementBehavior, ElementRenderContext } from './types'
 import type { LayoutNode } from '../../core/layout/types'
 import type { KeyEvent } from '../terminal/input'
 import { registerElement } from './registry'
+import { buildVisualLines, getVisualPos, getCursorLineCol, getFlatPos, findWordBoundary } from './text-utils'
 
 function getValue(node: LayoutNode): string {
     return node._inputValue ?? String(node.props.value ?? node.props.modelValue ?? '')
@@ -20,104 +21,6 @@ function ensureState(node: LayoutNode): void {
         node._selectionStart = node._cursorPos
         node._selectionEnd = node._cursorPos
     }
-}
-
-function findWordBoundary(text: string, pos: number, direction: 'left' | 'right'): number {
-    if (direction === 'left') {
-        if (pos <= 0) return 0
-        let i = pos - 1
-        // Skip whitespace/non-word chars
-        while (i >= 0 && !/\w/.test(text[i]!)) i--
-        // Skip word chars
-        while (i >= 0 && /\w/.test(text[i]!)) i--
-        return i + 1
-    } else {
-        if (pos >= text.length) return text.length
-        let i = pos
-        // Skip word chars
-        while (i < text.length && /\w/.test(text[i]!)) i++
-        // Skip whitespace/non-word chars
-        while (i < text.length && !/\w/.test(text[i]!)) i++
-        return i
-    }
-}
-
-/**
- * Compute {line, col} from a flat cursor offset within a multi-line string.
- * Used for hard-line navigation (when wrapping is not available).
- */
-function getCursorLineCol(value: string, cursorPos: number): { line: number; col: number } {
-    const before = value.slice(0, cursorPos)
-    const lines = before.split('\n')
-    return {
-        line: lines.length - 1,
-        col: (lines[lines.length - 1] ?? '').length,
-    }
-}
-
-/**
- * Convert {line, col} back to a flat cursor offset.
- * Clamps col to the target line's length.
- * Used for hard-line navigation.
- */
-function getFlatPos(lines: string[], targetLine: number, targetCol: number): number {
-    const clampedLine = Math.max(0, Math.min(targetLine, lines.length - 1))
-    let pos = 0
-    for (let i = 0; i < clampedLine; i++) {
-        pos += (lines[i]?.length ?? 0) + 1 // +1 for \n
-    }
-    pos += Math.min(targetCol, lines[clampedLine]?.length ?? 0)
-    return pos
-}
-
-/**
- * Visual line with wrapping info.
- */
-interface VisualLine {
-    text: string      // displayable text (does not include the \n)
-    startPos: number  // flat offset in the full value string
-}
-
-/**
- * Split value into visual lines based on content width.
- * Respects hard newlines and soft-wraps long lines at width boundary.
- * Uses character-based wrapping (predictable, aligns with terminal editors).
- */
-function buildVisualLines(value: string, width: number): VisualLine[] {
-    if (width <= 0) return []
-    const result: VisualLine[] = []
-    const hardLines = value.split('\n')
-    let flatPos = 0
-    for (const hardLine of hardLines) {
-        if (hardLine.length === 0) {
-            // Empty hard line (blank line)
-            result.push({ text: '', startPos: flatPos })
-        } else {
-            // Soft-wrap the hard line
-            let offset = 0
-            while (offset < hardLine.length) {
-                result.push({
-                    text: hardLine.slice(offset, offset + width),
-                    startPos: flatPos + offset,
-                })
-                offset += width
-            }
-        }
-        flatPos += hardLine.length + 1 // +1 for '\n'
-    }
-    return result
-}
-
-/**
- * Get the visual line and column for a flat cursor position.
- */
-function getVisualPos(visualLines: VisualLine[], flatPos: number): { vLine: number; col: number } {
-    for (let i = visualLines.length - 1; i >= 0; i--) {
-        if (flatPos >= visualLines[i]!.startPos) {
-            return { vLine: i, col: flatPos - visualLines[i]!.startPos }
-        }
-    }
-    return { vLine: 0, col: 0 }
 }
 
 const textareaBehavior: ElementBehavior = {
