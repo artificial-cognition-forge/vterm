@@ -329,8 +329,8 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     const globalStylesMap = getAllStyles()
     const allStyles: ParsedStyles = Object.fromEntries(globalStylesMap.entries())
 
-    // Initialize layout engine with terminal dimensions
-    const layoutEngine = createLayoutEngine(driver.width, driver.height)
+    // Initialize layout engine with terminal dimensions and styles (for CSS variable resolution)
+    const layoutEngine = createLayoutEngine(driver.width, driver.height, allStyles)
 
     // Track the current layout root for reflow on resize
     let currentLayoutRoot: LayoutNode | null = null

@@ -172,6 +172,9 @@ export interface LayoutProperties {
     hover?: Partial<LayoutProperties>
     focus?: Partial<LayoutProperties>
     active?: Partial<LayoutProperties>
+
+    // CSS variables (--name: value pairs)
+    cssVariables?: Record<string, string>
 }
 
 /**
@@ -310,4 +313,7 @@ export interface LayoutEngineConfig {
     // Layout options
     defaultDisplay?: "block" | "flex"
     defaultFlexDirection?: "row" | "column"
+
+    // CSS styles (optional, for CSS variable resolution)
+    styles?: Record<string, LayoutProperties>
 }

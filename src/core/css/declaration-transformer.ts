@@ -43,9 +43,37 @@ function ensureVisualStyles(props: LayoutProperties): VisualStyle {
 }
 
 /**
+ * Resolve CSS variable references in a value
+ * Supports var(--name) and var(--name, fallback) syntax
+ */
+export function resolveCSSVariable(value: string, variables: Record<string, string>): string {
+  return value.replace(/var\(--([a-zA-Z0-9_-]+)(?:,\s*([^)]*))?\)/g, (match, varName, fallback) => {
+    const varValue = variables[varName]
+    if (varValue) return varValue
+    if (fallback) return fallback.trim()
+    return match // Return original if no variable and no fallback
+  })
+}
+
+/**
  * Transform a single CSS declaration to layout properties
  */
-export function transformDeclaration(prop: string, value: string, props: LayoutProperties): void {
+export function transformDeclaration(prop: string, value: string, props: LayoutProperties, variables?: Record<string, string>): void {
+  // Resolve CSS variables if provided
+  if (variables) {
+    value = resolveCSSVariable(value, variables)
+  }
+
+  // Handle CSS variable declarations (--name: value)
+  if (prop.startsWith('--')) {
+    // Store CSS variables as-is in layout properties so they're available for inheritance
+    if (!props.cssVariables) {
+      props.cssVariables = {}
+    }
+    props.cssVariables[prop.substring(2)] = value
+    return
+  }
+
   switch (prop) {
     // Colors (visual styles)
 case 'color': {

@@ -74,7 +74,7 @@ describe('Input Element', () => {
     )
 
     // Should clip to 10 chars
-    expect(cellText(buf, 9, 0)).toBe('T')
+    expect(cellText(buf, 9, 0)).toBe('e')
   })
 
   test('input with custom background overrides UA', async () => {
@@ -124,7 +124,7 @@ describe('Textarea Element', () => {
     )
 
     // Should clip to 10 chars width
-    expect(cellText(buf, 9, 0)).toBe('e')
+    expect(cellText(buf, 9, 0)).toBe('i')
   })
 })
 

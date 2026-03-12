@@ -69,9 +69,45 @@ export class LayoutEngine {
     private config: LayoutEngineConfig
     private compoundSelectorIndex: CompoundSelectorIndex = {}
     private styleCache: Map<string, LayoutProperties> = new Map()  // Cache by class string
+    private cssVariables: Record<string, string> = {}  // CSS variables from :root
 
     constructor(config: LayoutEngineConfig) {
         this.config = config
+        this.extractCSSVariables()
+    }
+
+    /**
+     * Get extracted CSS variables (for debugging)
+     */
+    getCSSVariables(): Record<string, string> {
+        return { ...this.cssVariables }
+    }
+
+    /**
+     * Extract CSS variables from :root selector and all styles
+     * Handles both scoped (:root with scopeId) and unscoped :root
+     */
+    private extractCSSVariables(): void {
+        if (!this.config.styles) return
+
+        // Collect variables from all styles (including :root and scoped variants)
+        for (const [key, styleObj] of Object.entries(this.config.styles)) {
+            if (!styleObj || typeof styleObj !== 'object') continue
+
+            // Check if this is a :root selector (unscoped or scoped)
+            if (key === ':root' || key.includes('\x00:root')) {
+                // Extract CSS variables from :root
+                if (styleObj.cssVariables) {
+                    Object.assign(this.cssVariables, styleObj.cssVariables)
+                }
+                // Also check for direct variable properties (legacy format)
+                for (const [prop, val] of Object.entries(styleObj)) {
+                    if (prop.startsWith('--')) {
+                        this.cssVariables[prop.substring(2)] = String(val)
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -208,7 +244,7 @@ export class LayoutEngine {
             // Return a new object from the cache (don't share references)
             layoutProps = { ...cached }
         } else {
-            layoutProps = this.resolveStyles(props, styles, ancestorClasses)
+            layoutProps = this.resolveStyles(props, styles, ancestorClasses, type)
             this.styleCache.set(classKey, layoutProps)
         }
 
@@ -272,7 +308,8 @@ export class LayoutEngine {
     private resolveStyles(
         props: Record<string, any>,
         styles: Map<string, LayoutProperties>,
-        ancestorClasses: string[] = []
+        ancestorClasses: string[] = [],
+        type?: string
     ): LayoutProperties {
         let resolved: LayoutProperties = {}
 
@@ -281,6 +318,14 @@ export class LayoutEngine {
             resolved = { ...resolved, ...otherStyles }
             if (visualStyles) {
                 resolved.visualStyles = { ...resolved.visualStyles, ...visualStyles }
+            }
+        }
+
+        // Apply element type selector styles (e.g., 'button', 'input', 'div')
+        if (type) {
+            const typeStyle = styles.get(type)
+            if (typeStyle) {
+                applyStyle(typeStyle)
             }
         }
 
@@ -320,7 +365,7 @@ export class LayoutEngine {
                     for (const [key, val] of Object.entries(styleObj)) {
                         if (val === null || val === undefined) continue
                         const cssProp = camelToKebab(key)
-                        transformDeclaration(cssProp, String(val), resolved)
+                        transformDeclaration(cssProp, String(val), resolved, this.cssVariables)
                     }
                 }
             }
@@ -1059,12 +1104,14 @@ export class LayoutEngine {
  */
 export function createLayoutEngine(
     containerWidth: number = 100,
-    containerHeight: number = 100
+    containerHeight: number = 100,
+    styles?: Record<string, LayoutProperties>
 ): LayoutEngine {
     return new LayoutEngine({
         containerWidth,
         containerHeight,
         defaultDisplay: "block",
         defaultFlexDirection: "row",
+        styles,
     })
 }

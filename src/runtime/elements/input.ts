@@ -223,12 +223,14 @@ const inputBehavior: ElementBehavior = {
             return
         }
 
-        const cursorPos = node._cursorPos ?? value.length
+        const cursorPos = node._cursorPos ?? 0
         const selStart = node._selectionStart ?? cursorPos
         const selEnd = node._selectionEnd ?? cursorPos
 
         // Scroll viewport so cursor is always visible
-        const scrollOffset = Math.max(0, cursorPos - contentWidth + 1)
+        const scrollOffset = node._cursorPos !== undefined
+            ? Math.max(0, cursorPos - contentWidth + 1)
+            : 0
         const visible = value.slice(scrollOffset, scrollOffset + contentWidth)
 
         // Render text with selection highlighting

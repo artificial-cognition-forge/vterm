@@ -91,6 +91,39 @@ describe('createLayoutEngine', () => {
 
     expect(engine).toBeInstanceOf(LayoutEngine)
   })
+
+  test('extracts CSS variables from :root selector', () => {
+    const styles: Record<string, LayoutProperties> = {
+      ':root': {
+        '--bg': 'red',
+        '--fg': 'white',
+      } as any,
+    }
+    const engine = createLayoutEngine(100, 100, styles)
+    const vnode = h('textarea', { style: { background: 'var(--bg)', color: 'var(--fg)' } })
+
+    const tree = engine.buildLayoutTree(vnode)
+
+    // Variables should be resolved in the visual styles
+    expect(tree.style?.bg).toBe('red')
+    expect(tree.style?.fg).toBe('white')
+  })
+
+  test('extracts CSS variables from scoped :root selector', () => {
+    const scopedKey = 'data-v-12345678\x00:root'
+    const styles: Record<string, LayoutProperties> = {
+      [scopedKey]: {
+        '--primary': 'cyan',
+      } as any,
+    }
+    const engine = createLayoutEngine(100, 100, styles)
+    const vnode = h('div', { style: { background: 'var(--primary)' } })
+
+    const tree = engine.buildLayoutTree(vnode)
+
+    // Variables should be resolved from scoped :root
+    expect(tree.style?.bg).toBe('cyan')
+  })
 })
 
 describe('LayoutEngine.buildLayoutTree', () => {
