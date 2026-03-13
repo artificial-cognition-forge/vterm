@@ -310,7 +310,7 @@ const textareaBehavior: ElementBehavior = {
         requestRender()
     },
 
-    render(node: LayoutNode, { buffer, cellStyle, adjustedY, selectionBg, selectionFg }: ElementRenderContext): void {
+    render(node: LayoutNode, { buffer, cellStyle, adjustedY, selectionBg }: ElementRenderContext): void {
         const layout = node.layout!
         const border = layout.border.width
         const padding = layout.padding
@@ -383,7 +383,7 @@ const textareaBehavior: ElementBehavior = {
                 if (j < text.length && absPos >= selectionMinMax[0] && absPos < selectionMinMax[1]) {
                     buffer.writeCell(contentX + j, contentY + i, {
                         char,
-                        color: selectionFg,
+                        color: cellStyle.color ?? null,
                         background: selectionBg,
                         bold: cellStyle.bold ?? false,
                         underline: cellStyle.underline ?? false,

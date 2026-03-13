@@ -678,7 +678,7 @@ const editorBehavior: ElementBehavior = {
         if (node._editorHoverPos !== prev) requestRender()
     },
 
-    render(node: LayoutNode, { buffer, cellStyle, adjustedY, clipBox, selectionBg, selectionFg }: ElementRenderContext): void {
+    render(node: LayoutNode, { buffer, cellStyle, adjustedY, clipBox, selectionBg }: ElementRenderContext): void {
         const layout = node.layout!
         const border = layout.border.width
         const padding = layout.padding
@@ -808,7 +808,7 @@ const editorBehavior: ElementBehavior = {
                 const isBracketHL = !inSel && j < vl.text.length && (absPos === bracketA || absPos === bracketB)
                 buffer.writeCell(x, screenY, {
                     char,
-                    color:      inSel ? selectionFg : isBracketHL ? '#ffcc00' : tokenColor,
+                    color:      isBracketHL ? '#ffcc00' : tokenColor,
                     background: inSel ? selectionBg : isBracketHL ? '#333300' : (cellStyle.background ?? null),
                     bold:       isBracketHL ? true : tokenBold,
                     underline:  tokenUnderline,

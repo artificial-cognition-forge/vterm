@@ -313,8 +313,7 @@ describe('editor - selection rendering', () => {
         const behavior = getElement('editor')!
         const buffer = new ScreenBuffer(22, 12)
         const selectionBg = '#264f78'
-        const selectionFg = '#ffffff'
-        const ctx = { buffer, cellStyle: {}, adjustedY: node.layout!.y, selectionBg, selectionFg }
+        const ctx = { buffer, cellStyle: {}, adjustedY: node.layout!.y, selectionBg }
         behavior.render!(node, ctx as any)
 
         // Cells 0-4 should have selection bg color

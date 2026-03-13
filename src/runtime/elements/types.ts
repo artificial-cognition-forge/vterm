@@ -22,8 +22,6 @@ export interface ElementRenderContext {
     clipBox?: ClipBox
     /** Solid background color to use for selected text (pre-blended from SelectionConfig) */
     selectionBg: string
-    /** Foreground color to use for selected text */
-    selectionFg: string
 }
 
 /**
