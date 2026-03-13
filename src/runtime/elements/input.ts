@@ -182,7 +182,7 @@ const inputBehavior: ElementBehavior = {
         requestRender()
     },
 
-    render(node: LayoutNode, { buffer, cellStyle, adjustedY }: ElementRenderContext): void {
+    render(node: LayoutNode, { buffer, cellStyle, adjustedY, selectionBg, selectionFg }: ElementRenderContext): void {
         const layout = node.layout!
         const border = layout.border.width
         const padding = layout.padding
@@ -223,16 +223,15 @@ const inputBehavior: ElementBehavior = {
             const char = paddedVisible[i] ?? ' '
 
             if (absPos >= selectionMinMax[0] && absPos < selectionMinMax[1]) {
-                // In selection - render with inverted colors
                 buffer.writeCell(contentX + i, contentY, {
                     char,
-                    color: cellStyle.background ?? null,
-                    background: cellStyle.color ?? null,
+                    color: selectionFg,
+                    background: selectionBg,
                     bold: cellStyle.bold ?? false,
                     underline: cellStyle.underline ?? false,
                     italic: cellStyle.italic ?? false,
                     inverse: false,
-                    dim: cellStyle.dim ?? false,
+                    dim: false,
                 })
             } else {
                 buffer.writeCell(contentX + i, contentY, {

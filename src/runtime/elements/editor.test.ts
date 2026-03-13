@@ -312,16 +312,18 @@ describe('editor - selection rendering', () => {
         node._selectionEnd = 5
         const behavior = getElement('editor')!
         const buffer = new ScreenBuffer(22, 12)
-        const ctx = { buffer, cellStyle: {}, adjustedY: node.layout!.y }
+        const selectionBg = '#264f78'
+        const selectionFg = '#ffffff'
+        const ctx = { buffer, cellStyle: {}, adjustedY: node.layout!.y, selectionBg, selectionFg }
         behavior.render!(node, ctx as any)
 
         // Cells 0-4 should have selection bg color
         const firstCell = buffer.getCell(1, 1)
-        expect(firstCell?.background).toBe('#4a9eff')
+        expect(firstCell?.background).toBe(selectionBg)
 
         // Cell 5 (space) should NOT have selection background
         const afterSel = buffer.getCell(6, 1)
-        expect(afterSel?.background).not.toBe('#4a9eff')
+        expect(afterSel?.background).not.toBe(selectionBg)
     })
 
     test('getCursorPos returns null when no layout', () => {

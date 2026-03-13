@@ -310,7 +310,7 @@ const textareaBehavior: ElementBehavior = {
         requestRender()
     },
 
-    render(node: LayoutNode, { buffer, cellStyle, adjustedY }: ElementRenderContext): void {
+    render(node: LayoutNode, { buffer, cellStyle, adjustedY, selectionBg, selectionFg }: ElementRenderContext): void {
         const layout = node.layout!
         const border = layout.border.width
         const padding = layout.padding
@@ -380,18 +380,17 @@ const textareaBehavior: ElementBehavior = {
                 const absPos = vLineStart + j
                 const char = j < text.length ? text[j] : ' '
 
-                if (absPos >= selectionMinMax[0] && absPos < selectionMinMax[1]) {
-                    // In selection - render with inverted colors
-                    const invertedStyle = {
-                        color: cellStyle.background ?? '#000000',
-                        background: cellStyle.color ?? '#ffffff',
+                if (j < text.length && absPos >= selectionMinMax[0] && absPos < selectionMinMax[1]) {
+                    buffer.writeCell(contentX + j, contentY + i, {
+                        char,
+                        color: selectionFg,
+                        background: selectionBg,
                         bold: cellStyle.bold ?? false,
                         underline: cellStyle.underline ?? false,
                         italic: cellStyle.italic ?? false,
                         inverse: false,
-                        dim: cellStyle.dim ?? false,
-                    }
-                    buffer.writeCell(contentX + j, contentY + i, { char, ...invertedStyle })
+                        dim: false,
+                    })
                 } else {
                     const normalStyle = {
                         color: cellStyle.color ?? null,

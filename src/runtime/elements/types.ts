@@ -20,6 +20,10 @@ export interface ElementRenderContext {
     adjustedY: number
     /** Parent clip boundary — element renderers must not draw outside this box */
     clipBox?: ClipBox
+    /** Solid background color to use for selected text (pre-blended from SelectionConfig) */
+    selectionBg: string
+    /** Foreground color to use for selected text */
+    selectionFg: string
 }
 
 /**

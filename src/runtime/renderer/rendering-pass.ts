@@ -19,6 +19,22 @@ import type { InteractionManager } from "./interaction"
 import type { SelectionManager } from "./selection"
 import type { UIConfig } from "../../types/types"
 
+/** Pre-blend a selection color+opacity over a dark background to get a solid hex color. */
+function resolveSelectionColors(config?: UIConfig['selection']): { bg: string; fg: string } {
+    const hex = config?.color ?? '#4a7bc4'
+    const opacity = config?.opacity ?? 0.4
+    // Parse hex
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+    if (!m) return { bg: '#264f78', fg: '#ffffff' }
+    const r = parseInt(m[1]!, 16), g = parseInt(m[2]!, 16), b = parseInt(m[3]!, 16)
+    // Blend over a typical dark terminal background (#1e1e1e)
+    const br = Math.round(0x1e * (1 - opacity) + r * opacity)
+    const bg = Math.round(0x1e * (1 - opacity) + g * opacity)
+    const bb = Math.round(0x1e * (1 - opacity) + b * opacity)
+    const bgHex = `#${br.toString(16).padStart(2,'0')}${bg.toString(16).padStart(2,'0')}${bb.toString(16).padStart(2,'0')}`
+    return { bg: bgHex, fg: '#ffffff' }
+}
+
 interface ClipBox {
   x: number
   y: number
@@ -597,7 +613,8 @@ export class RenderingPass {
       const adjustedY = layout.y - parentScrollY
       const cellStyle = this.visualStyleToCellStyle(style)
 
-      behavior.render(node, { buffer: this.buffer, cellStyle, adjustedY, clipBox })
+      const { bg: selectionBg, fg: selectionFg } = resolveSelectionColors(this.uiConfig?.selection)
+      behavior.render(node, { buffer: this.buffer, cellStyle, adjustedY, clipBox, selectionBg, selectionFg })
     } else if (node.content) {
       // Render box content with padding offset
       const layout = node.layout!
