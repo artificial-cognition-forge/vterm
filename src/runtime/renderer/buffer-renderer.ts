@@ -33,6 +33,14 @@ export class BufferRenderer {
     }
 
     /**
+     * Updates the UI config (scrollbar chars, cursor style) at runtime.
+     * Takes effect on the next render() call.
+     */
+    setUIConfig(config: Partial<UIConfig>): void {
+        this.uiConfig = { ...this.uiConfig, ...config }
+    }
+
+    /**
      * Renders the entire layout tree to a buffer using stacking contexts,
      * then overlays the selection highlight.
      *

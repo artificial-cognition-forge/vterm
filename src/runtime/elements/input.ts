@@ -2,16 +2,10 @@ import type { ElementBehavior, ElementRenderContext } from './types'
 import type { LayoutNode } from '../../core/layout/types'
 import type { KeyEvent } from '../terminal/input'
 import { registerElement } from './registry'
-import { findWordBoundary } from './text-utils'
+import { findWordBoundary, getNodeValue, emitNodeUpdate, insertText, deleteSelection, getContentGeometry, getAdjustedContentGeometry } from './text-utils'
 
-function getValue(node: LayoutNode): string {
-    return node._inputValue ?? String(node.props.value ?? node.props.modelValue ?? '')
-}
-
-function emitUpdate(node: LayoutNode): void {
-    const handler = node.events.get('update:modelvalue')
-    if (handler) handler(node._inputValue!)
-}
+const getValue = getNodeValue
+const emitUpdate = emitNodeUpdate
 
 function ensureState(node: LayoutNode): void {
     if (node._inputValue === undefined) {
@@ -105,33 +99,17 @@ const inputBehavior: ElementBehavior = {
         }
 
         if (key.name === 'backspace') {
-            if (selStart !== selEnd) {
-                // Delete selection
-                const start = Math.min(selStart, selEnd)
-                const end = Math.max(selStart, selEnd)
-                node._inputValue = val.slice(0, start) + val.slice(end)
-                node._cursorPos = start
-                node._selectionStart = start
-                node._selectionEnd = start
-            } else if (pos > 0) {
-                node._inputValue = val.slice(0, pos - 1) + val.slice(pos)
-                node._cursorPos = pos - 1
-                node._selectionStart = pos - 1
-                node._selectionEnd = pos - 1
-            }
+            const r = deleteSelection(val, pos, selStart, selEnd, false)
+            node._inputValue = r.value
+            node._cursorPos = r.cursor
+            node._selectionStart = r.cursor
+            node._selectionEnd = r.cursor
         } else if (key.name === 'delete') {
-            if (selStart !== selEnd) {
-                const start = Math.min(selStart, selEnd)
-                const end = Math.max(selStart, selEnd)
-                node._inputValue = val.slice(0, start) + val.slice(end)
-                node._cursorPos = start
-                node._selectionStart = start
-                node._selectionEnd = start
-            } else {
-                node._inputValue = val.slice(0, pos) + val.slice(pos + 1)
-                node._selectionStart = pos
-                node._selectionEnd = pos
-            }
+            const r = deleteSelection(val, pos, selStart, selEnd, true)
+            node._inputValue = r.value
+            node._cursorPos = r.cursor
+            node._selectionStart = r.cursor
+            node._selectionEnd = r.cursor
         } else if (key.ctrl && key.name === 'left') {
             // Ctrl+Left: move to start of previous word
             node._cursorPos = findWordBoundary(val, pos, 'left')
@@ -162,17 +140,11 @@ const inputBehavior: ElementBehavior = {
             const changeHandler = node.events.get('change')
             if (changeHandler) changeHandler(node._inputValue!)
         } else if (!key.ctrl && !key.meta && key.sequence && key.sequence.length === 1) {
-            // Typing replaces selection if any
-            if (selStart !== selEnd) {
-                const start = Math.min(selStart, selEnd)
-                node._inputValue = val.slice(0, start) + key.sequence + val.slice(Math.max(selStart, selEnd))
-                node._cursorPos = start + 1
-            } else {
-                node._inputValue = val.slice(0, pos) + key.sequence + val.slice(pos)
-                node._cursorPos = pos + 1
-            }
-            node._selectionStart = node._cursorPos
-            node._selectionEnd = node._cursorPos
+            const r = insertText(val, pos, key.sequence, selStart, selEnd)
+            node._inputValue = r.value
+            node._cursorPos = r.cursor
+            node._selectionStart = r.cursor
+            node._selectionEnd = r.cursor
         }
 
         // Only emit the reactive update when the value actually changed.
@@ -184,12 +156,8 @@ const inputBehavior: ElementBehavior = {
 
     render(node: LayoutNode, { buffer, cellStyle, adjustedY, selectionBg }: ElementRenderContext): void {
         const layout = node.layout!
-        const border = layout.border.width
-        const padding = layout.padding
-
-        const contentX = layout.x + border + padding.left
-        const contentY = adjustedY + border + padding.top
-        const contentWidth = layout.width - 2 * border - padding.left - padding.right
+        const { contentX, contentWidth } = getAdjustedContentGeometry(node, adjustedY)
+        const contentY = adjustedY + layout.border.width + layout.padding.top
 
         if (contentWidth <= 0) return
 
@@ -250,12 +218,7 @@ const inputBehavior: ElementBehavior = {
 
     getCursorPos(node: LayoutNode): { x: number; y: number } | null {
         if (!node.layout) return null
-        const { layout } = node
-        const border = layout.border.width
-        const padding = layout.padding
-        const contentX = layout.x + border + padding.left
-        const contentY = layout.y + border + padding.top
-        const contentWidth = layout.width - 2 * border - padding.left - padding.right
+        const { contentX, contentY, contentWidth } = getContentGeometry(node)
         const value = getValue(node)
         const cursorPos = node._cursorPos ?? value.length
         const scrollOffset = Math.max(0, cursorPos - contentWidth + 1)
@@ -268,14 +231,9 @@ const inputBehavior: ElementBehavior = {
  */
 function getCursorPosFromClick(node: LayoutNode, clickX: number): number {
     const value = getValue(node)
-    const layout = node.layout
-    if (!layout) return value.length
+    if (!node.layout) return value.length
 
-    const border = layout.border.width
-    const padding = layout.padding
-    const contentX = layout.x + border + padding.left
-    const contentWidth = layout.width - 2 * border - padding.left - padding.right
-
+    const { contentX, contentWidth } = getContentGeometry(node)
     if (contentWidth <= 0) return value.length
 
     const cursorPos = node._cursorPos ?? value.length

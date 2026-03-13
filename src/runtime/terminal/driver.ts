@@ -152,6 +152,14 @@ export class TerminalDriver extends EventEmitter {
     }
 
     /**
+     * Updates cursor shape/blink options at runtime.
+     * Takes effect on the next render() call.
+     */
+    setCursorOptions(opts: { shape?: 'block' | 'line' | 'underline'; blink?: boolean }): void {
+        this.options.cursor = { ...this.options.cursor, ...opts }
+    }
+
+    /**
      * Register a handler for one or more key names (e.g. 'enter', 'C-c', 'shift-tab')
      */
     key(keys: string | string[], handler: (...args: any[]) => void): void {

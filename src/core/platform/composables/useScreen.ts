@@ -1,6 +1,8 @@
 import { inject, type InjectionKey } from "vue"
 import type { TerminalDriver } from "../../../runtime/terminal/driver"
 import type { InteractionManager } from "../../../runtime/renderer/interaction"
+import type { BufferRenderer } from "../../../runtime/renderer/buffer-renderer"
+import type { SelectionManager } from "../../../runtime/renderer/selection"
 
 /**
  * Injection key for terminal driver instance
@@ -16,6 +18,16 @@ export const RenderSymbol: InjectionKey<() => void> = Symbol("vterm-render")
  * Injection key for interaction manager (focus, hover, active state)
  */
 export const InteractionSymbol: InjectionKey<InteractionManager> = Symbol("vterm-interaction")
+
+/**
+ * Injection key for buffer renderer instance
+ */
+export const BufferRendererSymbol: InjectionKey<BufferRenderer> = Symbol("vterm-buffer-renderer")
+
+/**
+ * Injection key for selection manager instance
+ */
+export const SelectionSymbol: InjectionKey<SelectionManager> = Symbol("vterm-selection")
 
 /**
  * Access the terminal driver instance for screen-level operations

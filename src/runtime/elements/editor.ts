@@ -2,7 +2,12 @@ import type { ElementBehavior, ElementRenderContext } from './types'
 import type { LayoutNode } from '../../core/layout/types'
 import type { KeyEvent, MouseEvent } from '../terminal/input'
 import { registerElement } from './registry'
-import { buildVisualLines, getVisualPos, getFlatPos, findWordBoundary } from './text-utils'
+import {
+    buildVisualLines, getVisualPos, getFlatPos, findWordBoundary,
+    getNodeValue, emitNodeUpdate,
+    getContentGeometry as getSharedContentGeometry,
+    getAdjustedContentGeometry as getSharedAdjustedContentGeometry,
+} from './text-utils'
 import { getHighlightedLines } from './highlighter'
 
 // ---------------------------------------------------------------------------
@@ -26,14 +31,8 @@ const PAIR_CLOSE = new Set([')', ']', '}', '"', "'", '`'])
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getValue(node: LayoutNode): string {
-    return node._inputValue ?? String(node.props.value ?? node.props.modelValue ?? '')
-}
-
-function emitUpdate(node: LayoutNode): void {
-    const handler = node.events.get('update:modelvalue')
-    if (handler) handler(node._inputValue!)
-}
+const getValue = getNodeValue
+const emitUpdate = emitNodeUpdate
 
 function ensureState(node: LayoutNode): void {
     if (node._inputValue === undefined) {
@@ -175,34 +174,14 @@ function findMatchingBracket(val: string, pos: number): number | null {
     return null
 }
 
-/** Get content geometry from a node. */
-function getContentGeometry(node: LayoutNode) {
-    const layout = node.layout!
-    const border = layout.border.width
-    const { padding } = layout
-    return {
-        contentX: layout.x + border + padding.left,
-        contentY: layout.y + border + padding.top,
-        contentWidth: layout.width - 2 * border - padding.left - padding.right,
-        contentHeight: layout.height - 2 * border - padding.top - padding.bottom,
-    }
-}
+const getContentGeometry = getSharedContentGeometry
 
 /**
- * Like getContentGeometry but uses the stored _editorAdjustedY for contentY.
- * This corrects the hit-test skew that occurs when the node is inside a scrolled
- * parent (adjustedY != layout.y).
+ * Uses the stored _editorAdjustedY for contentY to correct hit-test skew when
+ * the node is inside a scrolled parent (adjustedY != layout.y).
  */
 function getAdjustedContentGeometry(node: LayoutNode) {
-    const geom = getContentGeometry(node)
-    const layout = node.layout!
-    const border = layout.border.width
-    const { padding } = layout
-    const adjustedY = node._editorAdjustedY ?? layout.y
-    return {
-        ...geom,
-        contentY: adjustedY + border + padding.top,
-    }
+    return getSharedAdjustedContentGeometry(node, node._editorAdjustedY ?? node.layout!.y)
 }
 
 /** Map screen coordinates to a flat cursor position. */
@@ -679,17 +658,10 @@ const editorBehavior: ElementBehavior = {
     },
 
     render(node: LayoutNode, { buffer, cellStyle, adjustedY, clipBox, selectionBg }: ElementRenderContext): void {
-        const layout = node.layout!
-        const border = layout.border.width
-        const padding = layout.padding
-
         // Store adjustedY so posFromMouse / getCursorPos use the same origin as render
         node._editorAdjustedY = adjustedY
 
-        const contentX = layout.x + border + padding.left
-        const contentY = adjustedY + border + padding.top
-        const contentWidth  = layout.width  - 2 * border - padding.left - padding.right
-        const contentHeight = layout.height - 2 * border - padding.top  - padding.bottom
+        const { contentX, contentY, contentWidth, contentHeight } = getSharedAdjustedContentGeometry(node, adjustedY)
 
         if (contentWidth <= 0 || contentHeight <= 0) return
 

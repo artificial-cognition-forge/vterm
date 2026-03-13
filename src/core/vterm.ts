@@ -17,7 +17,7 @@ import { SelectionManager } from "../runtime/renderer/selection"
 import { createLayoutRenderer, createLayoutNodeElement, applyCompoundStyles } from "../runtime/renderer/layout-renderer"
 import { createLayoutEngine } from "./layout/tree"
 import { loadSFC, getAllStyles, registerRenderCallback } from "./compiler/sfc-loader"
-import { ScreenSymbol, RenderSymbol, InteractionSymbol } from "./platform/composables/exports"
+import { ScreenSymbol, RenderSymbol, InteractionSymbol, BufferRendererSymbol, SelectionSymbol } from "./platform/composables/exports"
 import { StoreSymbol, StoreOptionsSymbol, type Store } from "./platform/store/store"
 import { installRouter, loadDefaultRoutes, getGlobalRouter } from "./router"
 import { getElement } from "../runtime/elements/index"
@@ -450,6 +450,8 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     app.provide(ScreenSymbol, driver)
     app.provide(RenderSymbol, immediateRender)
     app.provide(InteractionSymbol, interactionManager)
+    app.provide(BufferRendererSymbol, bufferRenderer)
+    app.provide(SelectionSymbol, selectionManager)
 
     // Provide store registry
     const storeRegistry = new Map<string, Store>()
