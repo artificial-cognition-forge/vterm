@@ -8,6 +8,7 @@
 export interface VisualLine {
     text: string      // displayable text (does not include the \n)
     startPos: number  // flat offset in the full value string
+    hardLine: number  // index of the hard (newline-delimited) line this wraps from
 }
 
 /**
@@ -19,15 +20,17 @@ export function buildVisualLines(value: string, width: number): VisualLine[] {
     const result: VisualLine[] = []
     const hardLines = value.split('\n')
     let flatPos = 0
-    for (const hardLine of hardLines) {
+    for (let h = 0; h < hardLines.length; h++) {
+        const hardLine = hardLines[h]!
         if (hardLine.length === 0) {
-            result.push({ text: '', startPos: flatPos })
+            result.push({ text: '', startPos: flatPos, hardLine: h })
         } else {
             let offset = 0
             while (offset < hardLine.length) {
                 result.push({
                     text: hardLine.slice(offset, offset + width),
                     startPos: flatPos + offset,
+                    hardLine: h,
                 })
                 offset += width
             }

@@ -248,6 +248,14 @@ export class InteractionManager {
             }
         }
 
+        // Dispatch hover (no button held) to the target node's behavior
+        if (!this.activeNode && targetNode) {
+            const behavior = getElement(targetNode.type)
+            if (behavior?.handleHover) {
+                behavior.handleHover(targetNode, event, () => this.renderCallback?.())
+            }
+        }
+
         // Always fire mousemove on the target
         if (targetNode) {
             const handler = targetNode.events.get("mousemove")
@@ -505,6 +513,13 @@ export class InteractionManager {
      */
     getFocusedNode(): LayoutNode | null {
         return this.focusedNode
+    }
+
+    /**
+     * Get the currently active (mousedown held) node
+     */
+    getActiveNode(): LayoutNode | null {
+        return this.activeNode
     }
 
     /**

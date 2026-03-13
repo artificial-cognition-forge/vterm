@@ -289,6 +289,8 @@ export interface LayoutNode {
     _editorSelAnchor?: number     // selection anchor for drag / shift-click
     _editorLastClickTime?: number // timestamp of last mousedown (double-click detection)
     _editorLastClickPos?: number  // cursor pos of last mousedown (double-click detection)
+    _editorAdjustedY?: number     // adjusted Y stored during render (fixes selection hit-test skew)
+    _editorHoverPos?: number      // flat cursor position under the mouse pointer (bracket highlighting)
 
     // Style cache (for performance optimization)
     _cachedEffectiveStyle?: VisualStyle

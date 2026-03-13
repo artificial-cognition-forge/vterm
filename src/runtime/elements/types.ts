@@ -54,6 +54,12 @@ export interface ElementBehavior {
     handleMouseUp?(node: LayoutNode, event: MouseEvent, requestRender: () => void): void
 
     /**
+     * Handle a hover (mouse move with no button held) over this element.
+     * Used for hover effects such as bracket highlighting.
+     */
+    handleHover?(node: LayoutNode, event: MouseEvent, requestRender: () => void): void
+
+    /**
      * Render the element's content into the buffer.
      * Called by the buffer-renderer instead of the generic box/text path.
      */

@@ -6,6 +6,23 @@ import { buildVisualLines, getVisualPos, getFlatPos, findWordBoundary } from './
 import { getHighlightedLines } from './highlighter'
 
 // ---------------------------------------------------------------------------
+// Auto-closing bracket/quote pairs
+// ---------------------------------------------------------------------------
+
+/** Map of opening char → closing char */
+const PAIR_OPEN: Record<string, string> = {
+    '(': ')',
+    '[': ']',
+    '{': '}',
+    '"': '"',
+    "'": "'",
+    '`': '`',
+}
+
+/** Set of closing chars (used for skip-over) */
+const PAIR_CLOSE = new Set([')', ']', '}', '"', "'", '`'])
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -96,6 +113,68 @@ function getWordAt(val: string, pos: number): { start: number; end: number } {
     return { start: pos, end: pos + 1 }
 }
 
+/**
+ * Given a string and a position that is ON an opener or closer bracket,
+ * return the position of the matching bracket, or null if not found.
+ */
+function findMatchingBracket(val: string, pos: number): number | null {
+    const ch = val[pos]
+    if (!ch) return null
+
+    // Determine direction and matching char
+    const closer = PAIR_OPEN[ch]
+    if (closer && ch !== '"' && ch !== "'" && ch !== '`') {
+        // Searching forward for closer
+        let depth = 0
+        for (let i = pos; i < val.length; i++) {
+            if (val[i] === ch) depth++
+            else if (val[i] === closer) {
+                depth--
+                if (depth === 0) return i
+            }
+        }
+        return null
+    }
+
+    // Check if ch is a structural closer (not a quote)
+    const CLOSE_TO_OPEN: Record<string, string> = { ')': '(', ']': '[', '}': '{' }
+    const opener = CLOSE_TO_OPEN[ch]
+    if (opener) {
+        let depth = 0
+        for (let i = pos; i >= 0; i--) {
+            if (val[i] === ch) depth++
+            else if (val[i] === opener) {
+                depth--
+                if (depth === 0) return i
+            }
+        }
+        return null
+    }
+
+    // For quotes, scan backwards first; if we find an unmatched opener, we are the closer
+    if (ch === '"' || ch === "'" || ch === '`') {
+        // Count same quote chars before pos to determine if we're opener or closer
+        let count = 0
+        for (let i = 0; i < pos; i++) {
+            if (val[i] === ch) count++
+        }
+        if (count % 2 === 0) {
+            // We are the opener — find closing quote
+            for (let i = pos + 1; i < val.length; i++) {
+                if (val[i] === ch) return i
+            }
+        } else {
+            // We are the closer — find opening quote
+            for (let i = pos - 1; i >= 0; i--) {
+                if (val[i] === ch) return i
+            }
+        }
+        return null
+    }
+
+    return null
+}
+
 /** Get content geometry from a node. */
 function getContentGeometry(node: LayoutNode) {
     const layout = node.layout!
@@ -109,10 +188,27 @@ function getContentGeometry(node: LayoutNode) {
     }
 }
 
+/**
+ * Like getContentGeometry but uses the stored _editorAdjustedY for contentY.
+ * This corrects the hit-test skew that occurs when the node is inside a scrolled
+ * parent (adjustedY != layout.y).
+ */
+function getAdjustedContentGeometry(node: LayoutNode) {
+    const geom = getContentGeometry(node)
+    const layout = node.layout!
+    const border = layout.border.width
+    const { padding } = layout
+    const adjustedY = node._editorAdjustedY ?? layout.y
+    return {
+        ...geom,
+        contentY: adjustedY + border + padding.top,
+    }
+}
+
 /** Map screen coordinates to a flat cursor position. */
 function posFromMouse(node: LayoutNode, event: MouseEvent): number | null {
     if (!node.layout) return null
-    const { contentX, contentY, contentWidth, contentHeight } = getContentGeometry(node)
+    const { contentX, contentY, contentWidth, contentHeight } = getAdjustedContentGeometry(node)
     if (contentWidth <= 0 || contentHeight <= 0) return null
 
     const val = node._inputValue ?? getValue(node)
@@ -412,7 +508,14 @@ function handleInsert(node: LayoutNode, key: KeyEvent, requestRender: () => void
             node._inputValue = val.slice(0, sMin) + val.slice(sMax)
             setCursor(node, sMin)
         } else if (pos > 0) {
-            node._inputValue = val.slice(0, pos - 1) + val.slice(pos)
+            // Backspace-pair: if the char before cursor is an opener and char at cursor is its closer, delete both
+            const charBefore = val[pos - 1]!
+            const charAt = val[pos]
+            if (charBefore && charAt && PAIR_OPEN[charBefore] === charAt) {
+                node._inputValue = val.slice(0, pos - 1) + val.slice(pos + 1)
+            } else {
+                node._inputValue = val.slice(0, pos - 1) + val.slice(pos)
+            }
             setCursor(node, pos - 1)
         }
     } else if (key.name === 'delete') {
@@ -442,12 +545,30 @@ function handleInsert(node: LayoutNode, key: KeyEvent, requestRender: () => void
             setCursor(node, pos + 1 + indent.length)
         }
     } else if (!key.ctrl && !key.meta && key.sequence && key.sequence.length === 1) {
+        const ch = key.sequence
         if (hasSelection) {
-            node._inputValue = val.slice(0, sMin) + key.sequence + val.slice(sMax)
-            setCursor(node, sMin + 1)
+            // With a selection, wrap in pair if opener; otherwise replace selection
+            const closer = PAIR_OPEN[ch]
+            if (closer) {
+                node._inputValue = val.slice(0, sMin) + ch + val.slice(sMin, sMax) + closer + val.slice(sMax)
+                setCursor(node, sMax + 2)
+            } else {
+                node._inputValue = val.slice(0, sMin) + ch + val.slice(sMax)
+                setCursor(node, sMin + 1)
+            }
         } else {
-            node._inputValue = val.slice(0, pos) + key.sequence + val.slice(pos)
-            setCursor(node, pos + 1)
+            // Skip-over: if typing a closing char that already sits at cursor, just advance
+            if (PAIR_CLOSE.has(ch) && val[pos] === ch) {
+                setCursor(node, pos + 1)
+            } else if (PAIR_OPEN[ch]) {
+                // Auto-close: insert opener + closer, leave cursor between them
+                const closer = PAIR_OPEN[ch]!
+                node._inputValue = val.slice(0, pos) + ch + closer + val.slice(pos)
+                setCursor(node, pos + 1)
+            } else {
+                node._inputValue = val.slice(0, pos) + ch + val.slice(pos)
+                setCursor(node, pos + 1)
+            }
         }
     }
 
@@ -519,10 +640,21 @@ const editorBehavior: ElementBehavior = {
         node._editorDragActive = false
     },
 
+    handleHover(node: LayoutNode, event: MouseEvent, requestRender: () => void): void {
+        ensureState(node)
+        const hoverPos = posFromMouse(node, event)
+        const prev = node._editorHoverPos
+        node._editorHoverPos = hoverPos ?? undefined
+        if (node._editorHoverPos !== prev) requestRender()
+    },
+
     render(node: LayoutNode, { buffer, cellStyle, adjustedY, clipBox }: ElementRenderContext): void {
         const layout = node.layout!
         const border = layout.border.width
         const padding = layout.padding
+
+        // Store adjustedY so posFromMouse / getCursorPos use the same origin as render
+        node._editorAdjustedY = adjustedY
 
         const contentX = layout.x + border + padding.left
         const contentY = adjustedY + border + padding.top
@@ -568,6 +700,20 @@ const editorBehavior: ElementBehavior = {
         const clipLeft   = clipBox ? Math.max(contentX, clipBox.x) : contentX
         const clipRight  = clipBox ? Math.min(contentX + contentWidth, clipBox.x + clipBox.width) : contentX + contentWidth
 
+        // Bracket highlight positions
+        let bracketA = -1, bracketB = -1
+        const hoverPos = node._editorHoverPos
+        if (hoverPos !== undefined && hoverPos >= 0 && hoverPos < value.length) {
+            const ch = value[hoverPos]
+            if (ch && (PAIR_OPEN[ch] || [')', ']', '}', '"', "'", '`'].includes(ch))) {
+                const matched = findMatchingBracket(value, hoverPos)
+                if (matched !== null) {
+                    bracketA = hoverPos
+                    bracketB = matched
+                }
+            }
+        }
+
         for (let i = 0; i < contentHeight; i++) {
             const screenY = contentY + i
             if (screenY < clipTop || screenY >= clipBottom) continue
@@ -583,7 +729,7 @@ const editorBehavior: ElementBehavior = {
             // Hard-line column = visual line's offset within the hard line + j.
             const hardLineStart = value.lastIndexOf('\n', vl.startPos - 1) + 1
             const vlHardOffset  = vl.startPos - hardLineStart
-            const lineTokens    = highlighted ? (highlighted[scrollY + i] ?? []) : null
+            const lineTokens    = highlighted ? (highlighted[vl.hardLine] ?? []) : null
 
             // Build token-offset table once per line (avoid O(N²) inner loop)
             let tokenOffsets: number[] | null = null
@@ -628,11 +774,12 @@ const editorBehavior: ElementBehavior = {
                     }
                 }
 
+                const isBracketHL = !inSel && (absPos === bracketA || absPos === bracketB)
                 buffer.writeCell(x, screenY, {
                     char,
-                    color:      inSel ? (cellStyle.background ?? '#1e3a5f') : tokenColor,
-                    background: inSel ? '#4a9eff'                            : (cellStyle.background ?? null),
-                    bold:       tokenBold,
+                    color:      inSel ? (cellStyle.background ?? '#1e3a5f') : isBracketHL ? '#ffcc00' : tokenColor,
+                    background: inSel ? '#4a9eff'                            : isBracketHL ? '#333300' : (cellStyle.background ?? null),
+                    bold:       isBracketHL ? true : tokenBold,
                     underline:  tokenUnderline,
                     italic:     tokenItalic,
                     inverse:    false,
@@ -644,7 +791,7 @@ const editorBehavior: ElementBehavior = {
 
     getCursorPos(node: LayoutNode): { x: number; y: number } | null {
         if (!node.layout) return null
-        const { contentX, contentY, contentWidth, contentHeight } = getContentGeometry(node)
+        const { contentX, contentY, contentWidth, contentHeight } = getAdjustedContentGeometry(node)
         const value = getValue(node)
         const cursorPos = node._cursorPos ?? value.length
         const visualLines = buildVisualLines(value, contentWidth)
