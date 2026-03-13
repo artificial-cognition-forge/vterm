@@ -416,6 +416,31 @@ export function createLayoutRenderer(
                 return
             }
 
+            // Handle declarative visual style bindings — :color="ref" / :background="ref" etc.
+            if (key === 'color' || key === 'background' || key === 'bg') {
+                const prop = key === 'bg' ? 'background' : key
+                node.style[prop as keyof typeof node.style] = nextValue ?? null
+                notifyUpdate()
+                return
+            }
+            if (key === 'bold' || key === 'italic' || key === 'underline' || key === 'dim' || key === 'inverse') {
+                (node.style as any)[key] = Boolean(nextValue)
+                notifyUpdate()
+                return
+            }
+
+            // Handle declarative scroll bindings — :scroll-y="n" / :scroll-x="n"
+            if (key === 'scroll-y' || key === 'scrollY') {
+                node.scrollY = typeof nextValue === 'number' ? nextValue : Number(nextValue ?? 0)
+                notifyUpdate()
+                return
+            }
+            if (key === 'scroll-x' || key === 'scrollX') {
+                node.scrollX = typeof nextValue === 'number' ? nextValue : Number(nextValue ?? 0)
+                notifyUpdate()
+                return
+            }
+
             // Sync value/modelValue prop to internal input state
             if (
                 (key === "value" || key === "modelValue") &&

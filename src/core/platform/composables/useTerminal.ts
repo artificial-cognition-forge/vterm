@@ -1,6 +1,7 @@
 import { computed, inject, ref, watch, onMounted, onUnmounted } from "vue"
-import { ScreenSymbol, BufferRendererSymbol, SelectionSymbol } from "./useScreen"
+import { ScreenSymbol, BufferRendererSymbol, SelectionSymbol, HighlightSymbol, ExitSymbol, ReloadSymbol } from "./useScreen"
 import { useConsole } from "./useConsole"
+import type { NerdFontName } from "../../../runtime/elements/nerd-fonts"
 
 /**
  * Access the terminal state and reactive controls for cursor and scrollbar appearance.
@@ -30,6 +31,9 @@ export function useTerminal() {
 
 	const bufferRenderer = inject(BufferRendererSymbol)
 	const selectionManager = inject(SelectionSymbol)
+	const highlightController = inject(HighlightSymbol)
+	const exitFn = inject(ExitSymbol)
+	const reloadFn = inject(ReloadSymbol)
 
 	// ── Dimensions ──────────────────────────────────────────────────────────────
 
@@ -66,6 +70,14 @@ export function useTerminal() {
 		screen.render()
 	})
 
+	// ── Highlight theme ──────────────────────────────────────────────────────────
+
+	const highlightTheme = ref<string>(highlightController?.getTheme() ?? 'github-dark')
+
+	watch(highlightTheme, (theme) => {
+		highlightController?.setTheme(theme as any)
+	})
+
 	// ── Scrollbar controls ───────────────────────────────────────────────────────
 
 	const scrollbarThumb = ref<string>('█')
@@ -75,6 +87,14 @@ export function useTerminal() {
 		bufferRenderer?.setUIConfig({ scrollbar: { thumb, track } })
 		screen.forceFullRedraw()
 		screen.render()
+	})
+
+	// ── Nerd Fonts ───────────────────────────────────────────────────────────
+
+	const nerdfontsSetting = ref<NerdFontName | false>('v3')
+
+	watch(nerdfontsSetting, (value) => {
+		bufferRenderer?.setUIConfig({ nerdfonts: value })
 	})
 
 	// ── Public API ───────────────────────────────────────────────────────────────
@@ -128,6 +148,50 @@ export function useTerminal() {
 			/** Writable ref — character used for the scrollbar track */
 			track: scrollbarTrack,
 		},
+
+		/**
+		 * Reactive syntax highlight theme control (Shiki).
+		 * Assign `theme` to switch the active theme at runtime — the cache is
+		 * cleared and all visible code re-highlights automatically.
+		 *
+		 * Theme names come from the Shiki `BundledTheme` type, e.g.
+		 * 'github-dark', 'nord', 'dracula', 'one-dark-pro', 'vitesse-light'.
+		 *
+		 * @example
+		 * terminal.highlight.theme.value = 'nord'
+		 */
+		highlight: {
+			/** Writable ref — Shiki theme name */
+			theme: highlightTheme,
+		},
+
+		/**
+		 * Nerd Fonts support. Controls whether <icon> elements and resolveIcon()
+		 * use Nerd Fonts codepoints. Assign to switch at runtime.
+		 *
+		 * @example
+		 * terminal.nerdfonts.value = 'v3'   // default, recommended
+		 * terminal.nerdfonts.value = 'v2'   // legacy patched fonts
+		 * terminal.nerdfonts.value = false  // disable, show raw name fallback
+		 */
+		nerdfonts: nerdfontsSetting,
+
+		/**
+		 * Gracefully exit the application — unmounts the app and restores the terminal.
+		 *
+		 * @example
+		 * terminal.exit()
+		 */
+		exit: () => exitFn?.(),
+
+		/**
+		 * Trigger a full hot reload of the application.
+		 * Clears the component and auto-import caches and remounts the app.
+		 *
+		 * @example
+		 * terminal.reload()
+		 */
+		reload: () => reloadFn?.(),
 
 		/**
 		 * Terminal-level text selection (screen-coordinate drag selection).

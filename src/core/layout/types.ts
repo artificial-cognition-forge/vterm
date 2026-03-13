@@ -219,6 +219,8 @@ export type ElementType =
     | "textarea"
     | "select"
     | "label"
+    // Rich content elements
+    | "icon"  // Nerd Font glyph (1×1 cell)
     // Internal types used by the layout engine
     | "box"   // generic container (default for component roots)
     | "text"  // raw text node

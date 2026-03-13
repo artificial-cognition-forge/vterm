@@ -3,6 +3,7 @@ import type { TerminalDriver } from "../../../runtime/terminal/driver"
 import type { InteractionManager } from "../../../runtime/renderer/interaction"
 import type { BufferRenderer } from "../../../runtime/renderer/buffer-renderer"
 import type { SelectionManager } from "../../../runtime/renderer/selection"
+import type { BundledTheme } from "shiki"
 
 /**
  * Injection key for terminal driver instance
@@ -28,6 +29,29 @@ export const BufferRendererSymbol: InjectionKey<BufferRenderer> = Symbol("vterm-
  * Injection key for selection manager instance
  */
 export const SelectionSymbol: InjectionKey<SelectionManager> = Symbol("vterm-selection")
+
+/**
+ * Interface for the highlight controller injected into components.
+ */
+export interface HighlightController {
+    getTheme(): BundledTheme
+    setTheme(theme: BundledTheme): Promise<void>
+}
+
+/**
+ * Injection key for the highlight controller (theme switching, etc.)
+ */
+export const HighlightSymbol: InjectionKey<HighlightController> = Symbol("vterm-highlight")
+
+/**
+ * Injection key for the exit function — triggers graceful app shutdown
+ */
+export const ExitSymbol: InjectionKey<() => Promise<void>> = Symbol("vterm-exit")
+
+/**
+ * Injection key for the reload function — triggers a full hot reload of the app
+ */
+export const ReloadSymbol: InjectionKey<() => Promise<void>> = Symbol("vterm-reload")
 
 /**
  * Access the terminal driver instance for screen-level operations

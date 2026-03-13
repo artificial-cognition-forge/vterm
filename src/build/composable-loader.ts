@@ -26,27 +26,66 @@ export async function loadComposableInScope(
     })
     let script = transformed.code
 
-    // Extract external package imports before stripping them so we can resolve
-    // them and inject their named exports into the scope.
-    // Matches: import { A, B as C } from "pkg" (non-relative, non-type)
-    const externalImports: Array<{ names: Array<{ imported: string; local: string }>; pkg: string }> = []
+    // Extract named imports before stripping them so we can resolve them and
+    // inject their named exports into the scope.
+    // Matches: import { A, B as C } from "pkg-or-./relative"
+    const namedImports: Array<{ names: Array<{ imported: string; local: string }>; pkg: string }> = []
+    // Also matches: import DefaultName from "./relative"
+    const defaultImports: Array<{ local: string; pkg: string }> = []
     const importRegex = /^\s*import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/gm
+    const defaultImportRegex = /^\s*import\s+(\w+)\s+from\s+['"]([^'"]+)['"]/gm
     let match: RegExpExecArray | null
     while ((match = importRegex.exec(script)) !== null) {
         const pkg = match[2]!
-        // Skip relative imports and vue/vterm (already in scope)
-        if (pkg.startsWith('.') || pkg === 'vue' || pkg.startsWith('@arcforge/vterm')) continue
+        // Skip vue/vterm (already in scope)
+        if (pkg === 'vue' || pkg.startsWith('@arcforge/vterm')) continue
         const names = match[1]!.split(',').map(s => s.trim()).filter(Boolean).map(s => {
             const [imported, local] = s.split(/\s+as\s+/)
             return { imported: imported!.trim(), local: (local ?? imported)!.trim() }
         })
-        externalImports.push({ names, pkg })
+        namedImports.push({ names, pkg })
+    }
+    while ((match = defaultImportRegex.exec(script)) !== null) {
+        const pkg = match[2]!
+        if (pkg === 'vue' || pkg.startsWith('@arcforge/vterm')) continue
+        defaultImports.push({ local: match[1]!, pkg })
     }
 
-    // Resolve external packages using Bun.resolve relative to the composable's
-    // own directory so the user project's node_modules are used (not vterm's).
     const fileDir = dirname(filepath)
-    for (const { names, pkg } of externalImports) {
+
+    // Resolve relative imports by recursively loading them in scope
+    for (const { names, pkg } of namedImports) {
+        if (!pkg.startsWith('.')) continue
+        try {
+            const resolved = resolve(fileDir, pkg.endsWith('.ts') ? pkg : pkg + '.ts')
+            const mod = await loadComposableInScope(resolved, moduleScope)
+            for (const { imported, local } of names) {
+                const val = mod[imported]
+                if (val !== undefined) {
+                    ;(moduleScope as any)[local] = val
+                }
+            }
+        } catch {
+            // Relative file not loadable — leave undefined
+        }
+    }
+    for (const { local, pkg } of defaultImports) {
+        if (!pkg.startsWith('.')) continue
+        try {
+            const resolved = resolve(fileDir, pkg.endsWith('.ts') ? pkg : pkg + '.ts')
+            const mod = await loadComposableInScope(resolved, moduleScope)
+            if (mod.default !== undefined) {
+                ;(moduleScope as any)[local] = mod.default
+            }
+        } catch {
+            // Relative file not loadable — leave undefined
+        }
+    }
+
+    // Resolve external (non-relative) packages using Bun.resolve relative to the
+    // composable's own directory so the user project's node_modules are used (not vterm's).
+    for (const { names, pkg } of namedImports) {
+        if (pkg.startsWith('.')) continue
         try {
             const resolved = await Bun.resolve(pkg, fileDir)
             const mod = await import(resolved)
@@ -55,6 +94,18 @@ export async function loadComposableInScope(
                 if (val !== undefined) {
                     ;(moduleScope as any)[local] = val
                 }
+            }
+        } catch {
+            // Package not resolvable — leave undefined, will surface at runtime
+        }
+    }
+    for (const { local, pkg } of defaultImports) {
+        if (pkg.startsWith('.')) continue
+        try {
+            const resolved = await Bun.resolve(pkg, fileDir)
+            const mod = await import(resolved)
+            if (mod.default !== undefined) {
+                ;(moduleScope as any)[local] = mod.default
             }
         } catch {
             // Package not resolvable — leave undefined, will surface at runtime

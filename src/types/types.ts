@@ -1,6 +1,7 @@
 import type { App } from "vue"
 import type { BundledTheme, BundledLanguage } from "shiki"
 import type { TerminalDriver } from "../runtime/terminal/driver"
+import type { NerdFontName } from "../runtime/elements/nerd-fonts"
 
 /**
  * Text selection highlight configuration
@@ -50,6 +51,16 @@ export interface UIConfig {
     scrollbar?: ScrollbarConfig
     /** Cursor appearance (shape, blinking) */
     cursor?: CursorConfig
+    /**
+     * Nerd Fonts support.
+     *
+     * - Font name string (e.g. `'JetBrainsMono Nerd Font'`) — enables v3 codepoints,
+     *   documents which font is in use. Autocompletes all official Nerd Fonts names.
+     * - `'v3'`   — explicit v3 codepoints (default).
+     * - `'v2'`   — legacy codepoints for older patched fonts.
+     * - `false`  — disabled; `<icon>` elements fall back to rendering the raw name.
+     */
+    nerdfonts?: NerdFontName | false
 }
 
 /**
@@ -178,6 +189,9 @@ export interface VTermOptions {
 
     /** Called after the app is mounted */
     onMounted?: (app: VTermApp) => void
+
+    /** Called when terminal.reload() is invoked — implement to trigger a full hot reload */
+    onReload?: () => Promise<void>
 
     /** Quit keys (default: ['C-c']) */
     quitKeys?: string[]

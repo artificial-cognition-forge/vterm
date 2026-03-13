@@ -57,3 +57,8 @@ export { useStore, createStore, type Store, type StoreOptions } from "../core/pl
  */
 export { defineVtermConfig, definePageMeta, type VTermConfig, type PageMeta, type VTermApp, type VTermOptions, type SnapshotOptions } from "../types/types"
 export { vterm } from "../core/vterm"
+
+/**
+ * Nerd Fonts icon utilities
+ */
+export { resolveIcon, NERD_FONT_ICONS, setNerdfontsSetting, resolveNerdfontVersion, type NerdFontName } from "./elements/nerd-fonts"

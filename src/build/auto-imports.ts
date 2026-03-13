@@ -69,6 +69,8 @@ export async function initAutoImports(cwd: string = process.cwd()) {
           'defineVtermConfig',
           // Page metadata (no-op at runtime, extracted at build time)
           'definePageMeta',
+          // Nerd Fonts
+          'resolveIcon',
         ],
       },
     ],

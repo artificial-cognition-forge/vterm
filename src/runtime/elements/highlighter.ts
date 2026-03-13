@@ -50,6 +50,8 @@ let _theme: BundledTheme = "github-dark"
 let _extraLangs: BundledLanguage[] = []
 let _errorColor: string | null = null
 
+// Cache key includes theme so old entries survive while a new theme loads.
+// Format: `${theme}\x00${lang}\x00${code}`
 const _cache = new Map<string, HighlightedLine[]>()
 const _pending = new Set<string>()
 
@@ -63,6 +65,49 @@ export function configureHighlighter(config: {
 }): void {
     if (config.theme) _theme = config.theme
     if (config.langs) _extraLangs = config.langs
+}
+
+/**
+ * Switch the active syntax highlight theme at runtime.
+ *
+ * The theme name is updated immediately so new `getHighlightedLines` calls
+ * use the new theme key. Old cache entries (keyed by the previous theme) are
+ * left in place — the renderer keeps showing them until the new theme's tokens
+ * are ready, avoiding a flash of unhighlighted code.
+ *
+ * When the new theme finishes loading, the render callback fires and the
+ * terminal repaints with the fresh tokens.
+ */
+export async function setHighlightTheme(theme: BundledTheme): Promise<void> {
+    if (theme === _theme) return
+    _theme = theme
+
+    if (_highlighter) {
+        // Load the new theme into the existing Shiki instance (no re-init).
+        try {
+            await _highlighter.loadTheme(theme)
+            // Re-detect the error token colour for the new theme.
+            const errTokens = _highlighter.codeToTokensBase('!@#invalid', { lang: 'json', theme })
+            const errColor = errTokens.flat().find(t => t.color)?.color
+            _errorColor = errColor ? errColor.toLowerCase() : null
+        } catch { /* ignore */ }
+    } else {
+        // Not yet initialised — ensureHighlighter() will pick up _theme when it runs.
+        _initPromise = null
+        _errorColor = null
+    }
+
+    // Trigger a render so visible code re-requests its tokens under the new
+    // theme key. Each cache miss kicks off highlightAsync, which fires the
+    // render callback again once tokens are ready.
+    _renderCallback?.()
+}
+
+/**
+ * Returns the currently active highlight theme name.
+ */
+export function getHighlightTheme(): BundledTheme {
+    return _theme
 }
 
 async function ensureHighlighter(): Promise<Highlighter> {
@@ -91,7 +136,7 @@ async function ensureHighlighter(): Promise<Highlighter> {
  * Starts async highlighting in the background on cache miss.
  */
 export function getHighlightedLines(code: string, lang: string): HighlightedLine[] | null {
-    const key = `${lang}\x00${code}`
+    const key = `${_theme}\x00${lang}\x00${code}`
     if (_cache.has(key)) return _cache.get(key)!
     if (_pending.has(key)) return null
 
@@ -131,16 +176,28 @@ async function highlightAsync(code: string, lang: string, key: string): Promise<
         }
         const aliasLang = (LANG_ALIASES[lang] ?? lang) as string
         const effectiveLang = h.getLoadedLanguages().includes(aliasLang as any) ? aliasLang : "text"
+        // Extract the theme from the key so we always tokenize with the theme
+        // that was requested — not whatever _theme happens to be now.
+        const keyTheme = key.split('\x00')[0] as BundledTheme
+        // Load the requested theme on demand if not already loaded.
+        if (!h.getLoadedThemes().includes(keyTheme)) {
+            try {
+                await h.loadTheme(keyTheme)
+            } catch { /* ignore */ }
+        }
         const rawLines: ThemedToken[][] = h.codeToTokensBase(code, {
             lang: effectiveLang as any,
-            theme: _theme,
+            theme: keyTheme,
         })
 
         const lines: HighlightedLine[] = rawLines.map(line =>
             line.map(token => {
                 // Strip error-scope colors so invalid tokens during editing don't flash red
+                // Only suppress error colors for the active theme — using keyTheme
+                // here avoids a race where _errorColor was updated for a different theme.
+                const activeErrorColor = keyTheme === _theme ? _errorColor : null
                 const color = token.color
-                    ? (_errorColor && token.color.toLowerCase() === _errorColor ? null : token.color)
+                    ? (activeErrorColor && token.color.toLowerCase() === activeErrorColor ? null : token.color)
                     : null
                 return {
                     content: token.content,
@@ -155,6 +212,16 @@ async function highlightAsync(code: string, lang: string, key: string): Promise<
 
         _cache.set(key, lines)
         _pending.delete(key)
+
+        // Evict stale-theme entries once the active theme's tokens land.
+        // Only do this when we just cached a result for the current theme.
+        if (keyTheme === _theme) {
+            const activePrefix = `${_theme}\x00`
+            for (const k of _cache.keys()) {
+                if (!k.startsWith(activePrefix)) _cache.delete(k)
+            }
+        }
+
         _renderCallback?.()
     } catch {
         _pending.delete(key)

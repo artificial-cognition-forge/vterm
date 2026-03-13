@@ -17,11 +17,11 @@ import { SelectionManager } from "../runtime/renderer/selection"
 import { createLayoutRenderer, createLayoutNodeElement, applyCompoundStyles } from "../runtime/renderer/layout-renderer"
 import { createLayoutEngine } from "./layout/tree"
 import { loadSFC, getAllStyles, registerRenderCallback } from "./compiler/sfc-loader"
-import { ScreenSymbol, RenderSymbol, InteractionSymbol, BufferRendererSymbol, SelectionSymbol } from "./platform/composables/exports"
+import { ScreenSymbol, RenderSymbol, InteractionSymbol, BufferRendererSymbol, SelectionSymbol, HighlightSymbol, ExitSymbol, ReloadSymbol } from "./platform/composables/exports"
 import { StoreSymbol, StoreOptionsSymbol, type Store } from "./platform/store/store"
 import { installRouter, loadDefaultRoutes, getGlobalRouter } from "./router"
 import { getElement } from "../runtime/elements/index"
-import { setHighlightCallback, configureHighlighter } from "../runtime/elements/highlighter"
+import { setHighlightCallback, configureHighlighter, setHighlightTheme, getHighlightTheme } from "../runtime/elements/highlighter"
 import { setVTermError, vtermError } from "./platform/error-state"
 import { installConsoleCapture, uninstallConsoleCapture } from "./platform/composables/useConsole"
 import type { VTermOptions, VTermApp, SnapshotOptions } from "../types/types"
@@ -452,6 +452,26 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     app.provide(InteractionSymbol, interactionManager)
     app.provide(BufferRendererSymbol, bufferRenderer)
     app.provide(SelectionSymbol, selectionManager)
+    app.provide(HighlightSymbol, {
+        getTheme: getHighlightTheme,
+        setTheme: setHighlightTheme,
+    })
+
+    app.provide(ExitSymbol, async () => {
+        try {
+            await vtermApp.unmount()
+        } catch {
+            try { driver.cleanup() } catch { }
+        } finally {
+            process.exit(0)
+        }
+    })
+
+    app.provide(ReloadSymbol, async () => {
+        if (options.onReload) {
+            await options.onReload()
+        }
+    })
 
     // Provide store registry
     const storeRegistry = new Map<string, Store>()

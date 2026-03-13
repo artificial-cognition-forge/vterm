@@ -622,6 +622,10 @@ export class LayoutEngine {
         containerWidth: number,
         parentFlexDir?: "row" | "column"
     ): number {
+        if (node.type === "icon") {
+            return 1
+        }
+
         if (node.type === "code") {
             const metrics = this.getCodeMetrics(node)
             return metrics.maxLineLength
@@ -698,6 +702,11 @@ export class LayoutEngine {
     ): number {
         const borderH = getBorderSide(border, 'top') + getBorderSide(border, 'bottom')
         const paddingH = padding.top + padding.bottom
+
+        // Icon elements are always 1 column × 1 row
+        if (node.type === "icon") {
+            return 1
+        }
 
         // Single-line text and heading elements
         if (["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "label"].includes(node.type)) {

@@ -17,6 +17,7 @@ import type { InteractionManager } from "./interaction"
 import type { SelectionManager } from "./selection"
 import { RenderingPass } from "./rendering-pass"
 import type { UIConfig } from "../../types/types"
+import { setNerdfontsSetting } from "../elements/nerd-fonts"
 
 /**
  * Renders a LayoutNode tree to a ScreenBuffer
@@ -30,6 +31,7 @@ export class BufferRenderer {
         this.interactionManager = interactionManager
         this.selectionManager = selectionManager
         this.uiConfig = uiConfig ?? { scrollbar: { thumb: '█', track: '│' }, cursor: { shape: 'block', blink: true } }
+        setNerdfontsSetting(this.uiConfig.nerdfonts ?? 'v3')
     }
 
     /**
@@ -38,6 +40,9 @@ export class BufferRenderer {
      */
     setUIConfig(config: Partial<UIConfig>): void {
         this.uiConfig = { ...this.uiConfig, ...config }
+        if (config.nerdfonts !== undefined) {
+            setNerdfontsSetting(config.nerdfonts)
+        }
     }
 
     /**

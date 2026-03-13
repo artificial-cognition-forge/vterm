@@ -57,6 +57,7 @@ export async function startDevServer(config: VTermConfig): Promise<void> {
         highlight,
         selection,
         ui,
+        onReload: reloadApp,
       })
     } catch (error) {
       console.error("Failed to create app:", error)
