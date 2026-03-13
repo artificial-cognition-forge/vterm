@@ -409,6 +409,13 @@ function handleInsert(node: LayoutNode, key: KeyEvent, requestRender: () => void
         requestRender(); return
     }
 
+    // Ctrl+S — save
+    if (key.ctrl && key.name === 's') {
+        const saveHandler = node.events.get('save')
+        if (saveHandler) saveHandler(node._inputValue ?? getValue(node))
+        requestRender(); return
+    }
+
     // Ctrl+Z — undo (stub, no-op for now — keeps key from being typed)
     if (key.ctrl && key.name === 'z') { requestRender(); return }
 
@@ -682,6 +689,17 @@ const editorBehavior: ElementBehavior = {
         const lang = String(node.props.lang ?? 'text')
         const highlighted = getHighlightedLines(value, lang)
 
+        // Build a set of hard-line indices (0-based) that have diagnostics
+        type Diagnostic = { line: number; message?: string; severity?: 'error' | 'warning' }
+        const diagnostics = (node.props.diagnostics ?? []) as Diagnostic[]
+        const diagnosticLines = new Map<number, 'error' | 'warning'>()
+        for (const d of diagnostics) {
+            const hardLine = d.line - 1 // convert 1-based to 0-based
+            if (!diagnosticLines.has(hardLine) || d.severity === 'error') {
+                diagnosticLines.set(hardLine, d.severity ?? 'error')
+            }
+        }
+
         const visualLines = buildVisualLines(value, contentWidth)
         const { vLine: cursorVLine } = getVisualPos(visualLines, cursorPos)
 
@@ -778,12 +796,15 @@ const editorBehavior: ElementBehavior = {
                 }
 
                 const isBracketHL = !inSel && j < vl.text.length && (absPos === bracketA || absPos === bracketB)
+                const diagSeverity = diagnosticLines.get(vl.hardLine)
+                const isDiag = !inSel && diagSeverity !== undefined && j < vl.text.length
+                const diagColor = isDiag ? (diagSeverity === 'error' ? '#ff5555' : '#ffaa00') : null
                 buffer.writeCell(x, screenY, {
                     char,
-                    color:      isBracketHL ? '#ffcc00' : tokenColor,
+                    color:      isBracketHL ? '#ffcc00' : diagColor ?? tokenColor,
                     background: inSel ? selectionBg : isBracketHL ? '#333300' : (cellStyle.background ?? null),
                     bold:       isBracketHL ? true : tokenBold,
-                    underline:  tokenUnderline,
+                    underline:  isDiag ? true : tokenUnderline,
                     italic:     tokenItalic,
                     inverse:    false,
                     dim:        false,

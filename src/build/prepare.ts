@@ -1,5 +1,6 @@
 import { resolve } from "path"
 import { mkdir } from "fs"
+import { buildBin } from "./bin"
 import {
     initAutoImports,
     generateTypeDeclarations,
@@ -52,6 +53,8 @@ export async function prepareProject(): Promise<void> {
     } catch (error) {
         console.log("No app/layout directory found, skipping layout declarations")
     }
+
+    await buildBin()
 
     console.log("✓ Project prepared successfully!")
 }
