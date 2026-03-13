@@ -151,6 +151,7 @@ export function defineVtermConfig(config: Partial<VTermConfig> = {}): VTermConfi
             ...config.highlight,
         },
         ui: {
+            ...config.ui,
             scrollbar: {
                 thumb: '█',
                 track: '│',
@@ -161,7 +162,6 @@ export function defineVtermConfig(config: Partial<VTermConfig> = {}): VTermConfi
                 blink: true,
                 ...config.ui?.cursor,
             },
-            ...config.ui,
         },
     }
 }

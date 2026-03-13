@@ -128,6 +128,29 @@ export class AnsiWriter {
     }
 
     /**
+     * Sets the cursor shape using DECSCUSR escape sequence.
+     * shape: 'block' | 'line' | 'underline'
+     * blink: true = blinking, false = steady
+     */
+    setCursorShape(shape: 'block' | 'line' | 'underline', blink = true): this {
+        // DECSCUSR codes:
+        // 1 = blinking block, 2 = steady block
+        // 3 = blinking underline, 4 = steady underline
+        // 5 = blinking bar (line), 6 = steady bar (line)
+        let code: number
+        if (shape === 'block') {
+            code = blink ? 1 : 2
+        } else if (shape === 'underline') {
+            code = blink ? 3 : 4
+        } else {
+            // 'line' (bar)
+            code = blink ? 5 : 6
+        }
+        this.output.push(`\x1b[${code} q`)
+        return this
+    }
+
+    /**
      * Clears the screen
      */
     clearScreen(): this {

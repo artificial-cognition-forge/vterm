@@ -47,6 +47,7 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         inputParser,
         alternateScreen: true,
         hideCursor: true,
+        cursor: ui?.cursor,
     })
 
     // Initialize driver (raw mode, alternate screen, etc.)

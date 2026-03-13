@@ -136,7 +136,13 @@ export function generateTsConfig(): string {
       "moduleResolution": "bundler",
       "types": [],
       "strict": true,
-      "skipLibCheck": true
+      "skipLibCheck": true,
+      "plugins": [
+        {
+          "name": "@vue/typescript-plugin",
+          "languages": ["vue"]
+        }
+      ]
     },
     "include": [
       "./auto-imports.d.ts",

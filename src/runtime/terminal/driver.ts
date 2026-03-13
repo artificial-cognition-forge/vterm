@@ -27,6 +27,14 @@ export interface TerminalDriverOptions {
      * @default true
      */
     enableMouse?: boolean
+
+    /**
+     * Cursor shape configuration
+     */
+    cursor?: {
+        shape?: 'block' | 'line' | 'underline'
+        blink?: boolean
+    }
 }
 
 /**
@@ -38,7 +46,7 @@ export class TerminalDriver extends EventEmitter {
     private differ: FrameDiffer
     private writer: AnsiWriter
     private inputParser?: InputParser
-    private options: Required<TerminalDriverOptions>
+    private options: Required<Omit<TerminalDriverOptions, 'cursor'>> & { cursor?: TerminalDriverOptions['cursor'] }
     private initialized = false
     private resizeHandler: () => void
     private resizeTimeoutId: NodeJS.Timeout | null = null
@@ -56,6 +64,7 @@ export class TerminalDriver extends EventEmitter {
             alternateScreen: options.alternateScreen ?? true,
             hideCursor: options.hideCursor ?? true,
             enableMouse: options.enableMouse ?? true,
+            cursor: options.cursor,
         }
 
         // Get terminal dimensions
@@ -190,7 +199,9 @@ export class TerminalDriver extends EventEmitter {
 
         // Position and show cursor for focused inputs, otherwise hide
         if (this.cursorPos) {
-            this.writer.showCursor().moveCursor(this.cursorPos.x, this.cursorPos.y)
+            const shape = this.options.cursor?.shape ?? 'block'
+            const blink = this.options.cursor?.blink ?? true
+            this.writer.setCursorShape(shape, blink).showCursor().moveCursor(this.cursorPos.x, this.cursorPos.y)
         } else {
             this.writer.hideCursor()
         }
@@ -244,7 +255,7 @@ export class TerminalDriver extends EventEmitter {
                 // Emit resize event - layout engine listens and refloes immediately
                 this.emit("resize", { width: newWidth, height: newHeight })
             }
-        }, 16) // 60fps - stable during resize drag
+        }, 4) // 60fps - stable during resize drag
     }
 
     /**

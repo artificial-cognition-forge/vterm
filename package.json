@@ -38,6 +38,7 @@
     },
     "dependencies": {
         "@vue/compiler-sfc": "^3.5.26",
+        "@vue/typescript-plugin": "^3.2.5",
         "glob": "^13.0.6",
         "postcss": "^8.5.6",
         "postcss-nested": "^7.0.2",
