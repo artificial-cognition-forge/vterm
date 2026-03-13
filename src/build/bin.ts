@@ -25,7 +25,9 @@ export async function buildBin(): Promise<void> {
     // Resolve the project root relative to the bin script so it works from any cwd
     const script = [
         `#!/usr/bin/env sh`,
-        `cd "$(dirname "$0")/.."`,
+        `SCRIPT=$(realpath "$0")`,
+        `DIR=$(dirname "$SCRIPT")`,
+        `cd "$DIR/.."`,
         `exec vterm dev "$@"`,
         ``,
     ].join("\n")
