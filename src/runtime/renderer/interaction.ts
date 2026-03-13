@@ -373,6 +373,7 @@ export class InteractionManager {
         const padding = layout.padding
         const viewportHeight = layout.height - 2 * border - padding.top - padding.bottom
 
+
         if (event.type === "wheelup") {
             scrollableNode.scrollY = Math.max(0, scrollableNode.scrollY - scrollAmount)
         } else if (event.type === "wheeldown") {

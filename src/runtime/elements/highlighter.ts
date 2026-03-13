@@ -48,6 +48,7 @@ let _initPromise: Promise<Highlighter> | null = null
 let _renderCallback: (() => void) | null = null
 let _theme: BundledTheme = "github-dark"
 let _extraLangs: BundledLanguage[] = []
+let _errorColor: string | null = null
 
 const _cache = new Map<string, HighlightedLine[]>()
 const _pending = new Set<string>()
@@ -73,6 +74,12 @@ async function ensureHighlighter(): Promise<Highlighter> {
             langs: allLangs as any,
         }).then(h => {
             _highlighter = h
+            // Detect the theme's error token color by highlighting intentionally invalid JSON
+            try {
+                const errTokens = h.codeToTokensBase('!@#invalid', { lang: 'json', theme: _theme })
+                const errColor = errTokens.flat().find(t => t.color)?.color
+                if (errColor) _errorColor = errColor.toLowerCase()
+            } catch { /* ignore */ }
             return h
         })
     }
@@ -130,14 +137,20 @@ async function highlightAsync(code: string, lang: string, key: string): Promise<
         })
 
         const lines: HighlightedLine[] = rawLines.map(line =>
-            line.map(token => ({
-                content: token.content,
-                color: token.color ?? null,
-                // FontStyle bit flags: 1=italic, 2=bold, 4=underline
-                bold: !!(token.fontStyle && token.fontStyle & 2),
-                italic: !!(token.fontStyle && token.fontStyle & 1),
-                underline: !!(token.fontStyle && token.fontStyle & 4),
-            }))
+            line.map(token => {
+                // Strip error-scope colors so invalid tokens during editing don't flash red
+                const color = token.color
+                    ? (_errorColor && token.color.toLowerCase() === _errorColor ? null : token.color)
+                    : null
+                return {
+                    content: token.content,
+                    color,
+                    // FontStyle bit flags: 1=italic, 2=bold, 4=underline
+                    bold: !!(token.fontStyle && token.fontStyle & 2),
+                    italic: !!(token.fontStyle && token.fontStyle & 1),
+                    underline: !!(token.fontStyle && token.fontStyle & 4),
+                }
+            })
         )
 
         _cache.set(key, lines)

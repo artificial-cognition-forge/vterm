@@ -99,17 +99,14 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
             if (vtermError.value === null) setVTermError(err, 'event')
         }
 
-        // Suppress native selection when an editor element is active or focused —
+        // Suppress native selection when the drag originated inside an editor —
         // editors manage their own text selection internally.
-        const editorIsActive =
-            interactionManager.getActiveNode()?.type === 'editor' ||
-            interactionManager.getFocusedNode()?.type === 'editor'
+        const activeIsEditor = interactionManager.getActiveNode()?.type === 'editor'
 
-        if (!editorIsActive) {
+        if (!activeIsEditor) {
             selectionManager.handleMouseEvent(mouseEvent)
         } else {
-            // Clear any lingering native selection so it doesn't persist after
-            // the user clicks into an editor.
+            // Clear any lingering native selection so it doesn't persist.
             selectionManager.clearSelection()
         }
 

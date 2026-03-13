@@ -215,10 +215,7 @@ function posFromMouse(node: LayoutNode, event: MouseEvent): number | null {
     const visualLines = buildVisualLines(val, contentWidth)
     const scrollY = node.scrollY ?? 0
 
-    const relY = event.y - contentY
-    if (relY < 0) return 0
-    if (relY >= contentHeight) return val.length
-
+    const relY = Math.max(0, Math.min(contentHeight - 1, event.y - contentY))
     const clickedVLine = scrollY + Math.floor(relY)
     const vl = visualLines[clickedVLine]
     if (!vl) return val.length
@@ -508,15 +505,25 @@ function handleInsert(node: LayoutNode, key: KeyEvent, requestRender: () => void
             node._inputValue = val.slice(0, sMin) + val.slice(sMax)
             setCursor(node, sMin)
         } else if (pos > 0) {
-            // Backspace-pair: if the char before cursor is an opener and char at cursor is its closer, delete both
-            const charBefore = val[pos - 1]!
-            const charAt = val[pos]
-            if (charBefore && charAt && PAIR_OPEN[charBefore] === charAt) {
-                node._inputValue = val.slice(0, pos - 1) + val.slice(pos + 1)
+            // Smart indent backspace: if everything between the line start and cursor
+            // is spaces, delete up to one indent level worth of spaces.
+            const lineStart = val.lastIndexOf('\n', pos - 1) + 1
+            const beforeCursor = val.slice(lineStart, pos)
+            if (beforeCursor.length > 0 && /^ +$/.test(beforeCursor)) {
+                const deleteCount = ((beforeCursor.length - 1) % indentSize) + 1
+                node._inputValue = val.slice(0, pos - deleteCount) + val.slice(pos)
+                setCursor(node, pos - deleteCount)
             } else {
-                node._inputValue = val.slice(0, pos - 1) + val.slice(pos)
+                // Backspace-pair: if the char before cursor is an opener and char at cursor is its closer, delete both
+                const charBefore = val[pos - 1]!
+                const charAt = val[pos]
+                if (charBefore && charAt && PAIR_OPEN[charBefore] === charAt) {
+                    node._inputValue = val.slice(0, pos - 1) + val.slice(pos + 1)
+                } else {
+                    node._inputValue = val.slice(0, pos - 1) + val.slice(pos)
+                }
+                setCursor(node, pos - 1)
             }
-            setCursor(node, pos - 1)
         }
     } else if (key.name === 'delete') {
         if (hasSelection) {
@@ -537,12 +544,31 @@ function handleInsert(node: LayoutNode, key: KeyEvent, requestRender: () => void
         }
     } else if (key.name === 'enter') {
         const indent = getLineIndent(val, pos)
+        const indentUnit = ' '.repeat(indentSize)
         if (hasSelection) {
             node._inputValue = val.slice(0, sMin) + '\n' + indent + val.slice(sMax)
             setCursor(node, sMin + 1 + indent.length)
         } else {
-            node._inputValue = val.slice(0, pos) + '\n' + indent + val.slice(pos)
-            setCursor(node, pos + 1 + indent.length)
+            // Check if cursor sits between a bracket pair e.g. {|} — expand it
+            const OPENERS = new Set(['{', '[', '('])
+            const CLOSERS: Record<string, string> = { '}': '{', ']': '[', ')': '(' }
+            const charBefore = val[pos - 1]
+            const charAfter  = val[pos]
+            if (charBefore && charAfter && OPENERS.has(charBefore) && CLOSERS[charAfter] === charBefore) {
+                // Insert: \n indent+unit | \n indent
+                const inner = '\n' + indent + indentUnit
+                const outer = '\n' + indent
+                node._inputValue = val.slice(0, pos) + inner + outer + val.slice(pos)
+                setCursor(node, pos + inner.length)
+            } else {
+                // Normal enter: match current indent, plus one level if line ends with an opener
+                const lineUpToCursor = val.slice(val.lastIndexOf('\n', pos - 1) + 1, pos)
+                const trimmed = lineUpToCursor.trimEnd()
+                const endsWithOpener = trimmed.length > 0 && OPENERS.has(trimmed[trimmed.length - 1]!)
+                const newIndent = endsWithOpener ? indent + indentUnit : indent
+                node._inputValue = val.slice(0, pos) + '\n' + newIndent + val.slice(pos)
+                setCursor(node, pos + 1 + newIndent.length)
+            }
         }
     } else if (!key.ctrl && !key.meta && key.sequence && key.sequence.length === 1) {
         const ch = key.sequence
@@ -625,6 +651,8 @@ const editorBehavior: ElementBehavior = {
 
         node._editorDragActive = true
         node._editorStickyCol = undefined
+        // Sync _prevCursorPos so render's auto-scroll doesn't fire for mouse-initiated cursor moves
+        node._prevCursorPos = node._cursorPos
         requestRender()
     },
 
@@ -633,6 +661,8 @@ const editorBehavior: ElementBehavior = {
         const newPos = posFromMouse(node, event)
         if (newPos === null) return
         extendSelection(node, newPos)
+        // Sync _prevCursorPos to suppress spurious auto-scroll during drag
+        node._prevCursorPos = node._cursorPos
         requestRender()
     },
 
@@ -748,7 +778,8 @@ const editorBehavior: ElementBehavior = {
 
                 const absPos = vl.startPos + j
                 const char   = j < vl.text.length ? vl.text[j]! : ' '
-                const inSel  = absPos >= selMin && absPos < selMax
+                // Only highlight actual characters. Trailing padding is never selected.
+                const inSel = j < vl.text.length && absPos >= selMin && absPos < selMax
 
                 // Resolve token color for this column
                 let tokenColor: string | null = cellStyle.color ?? null
@@ -774,7 +805,7 @@ const editorBehavior: ElementBehavior = {
                     }
                 }
 
-                const isBracketHL = !inSel && (absPos === bracketA || absPos === bracketB)
+                const isBracketHL = !inSel && j < vl.text.length && (absPos === bracketA || absPos === bracketB)
                 buffer.writeCell(x, screenY, {
                     char,
                     color:      inSel ? (cellStyle.background ?? '#1e3a5f') : isBracketHL ? '#ffcc00' : tokenColor,
