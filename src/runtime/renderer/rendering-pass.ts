@@ -244,7 +244,7 @@ export class RenderingPass {
 
     // Render scrollbar for this context's root (if scrollable, on background pass)
     if (context.root.layout && isScrollableNode(context.root)) {
-      this.renderScrollbar(context.root, parentScrollY)
+      this.renderScrollbar(context.root, parentScrollY, clipBox)
     }
   }
 
@@ -292,7 +292,7 @@ export class RenderingPass {
 
       // Render scrollbar on top of children (text pass, after content is rendered)
       if (this.isTextPass && (isScrollableNode(node) || node.type === 'textarea' || node.type === 'editor') && node.layout) {
-        this.renderScrollbar(node, parentScrollY)
+        this.renderScrollbar(node, parentScrollY, clipBox)
       }
     }
   }
@@ -731,7 +731,7 @@ export class RenderingPass {
   /**
    * Render a scrollbar overlay on the rightmost column
    */
-  private renderScrollbar(node: LayoutNode, parentScrollY: number): void {
+  private renderScrollbar(node: LayoutNode, parentScrollY: number, clipBox?: ClipBox): void {
     const layout = node.layout!
     const contentHeight = node.contentHeight ?? 0
     const borderTop   = getBorderSide(layout.border, 'top')
@@ -744,6 +744,12 @@ export class RenderingPass {
 
     const adjustedY = layout.y - parentScrollY + borderTop
     const x = layout.x + layout.width - 1 - borderRight
+
+    // Clamp visible track to clip box so the scrollbar never draws outside its container
+    const clipTop    = clipBox ? Math.max(adjustedY, clipBox.y) : adjustedY
+    const clipBottom = clipBox ? Math.min(adjustedY + viewportHeight, clipBox.y + clipBox.height) : adjustedY + viewportHeight
+    const visibleHeight = Math.max(0, clipBottom - clipTop)
+    if (visibleHeight === 0) return
 
     const thumbSize = Math.max(1, Math.floor((viewportHeight / contentHeight) * viewportHeight))
     const scrollRange = contentHeight - viewportHeight
@@ -772,19 +778,22 @@ export class RenderingPass {
     const thumbChar = this.uiConfig?.scrollbar?.thumb ?? '█'
     const trackChar = this.uiConfig?.scrollbar?.track ?? '│'
 
-    // Render scrollbar vertically (one row at a time)
+    // Render scrollbar vertically (one row at a time), skipping rows outside clip
     // Track before thumb
     for (let i = 0; i < thumbPos; i++) {
-      this.buffer.write(x, adjustedY + i, trackChar, trackStyle)
+      const y = adjustedY + i
+      if (y >= clipTop && y < clipBottom) this.buffer.write(x, y, trackChar, trackStyle)
     }
     // Thumb section
     for (let i = 0; i < thumbSize; i++) {
-      this.buffer.write(x, adjustedY + thumbPos + i, thumbChar, thumbStyle)
+      const y = adjustedY + thumbPos + i
+      if (y >= clipTop && y < clipBottom) this.buffer.write(x, y, thumbChar, thumbStyle)
     }
     // Track after thumb
     const trackAfter = viewportHeight - thumbPos - thumbSize
     for (let i = 0; i < trackAfter; i++) {
-      this.buffer.write(x, adjustedY + thumbPos + thumbSize + i, trackChar, trackStyle)
+      const y = adjustedY + thumbPos + thumbSize + i
+      if (y >= clipTop && y < clipBottom) this.buffer.write(x, y, trackChar, trackStyle)
     }
   }
 
