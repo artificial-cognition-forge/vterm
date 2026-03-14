@@ -17,7 +17,7 @@ import { SelectionManager } from "../runtime/renderer/selection"
 import { createLayoutRenderer, createLayoutNodeElement, applyCompoundStyles } from "../runtime/renderer/layout-renderer"
 import { createLayoutEngine } from "./layout/tree"
 import { loadSFC, getAllStyles, registerRenderCallback } from "./compiler/sfc-loader"
-import { ScreenSymbol, RenderSymbol, InteractionSymbol, BufferRendererSymbol, SelectionSymbol, HighlightSymbol, ExitSymbol, ReloadSymbol } from "./platform/composables/exports"
+import { ScreenSymbol, RenderSymbol, InteractionSymbol, BufferRendererSymbol, SelectionSymbol, HighlightSymbol, ExitSymbol, ReloadSymbol, BeforeExitSymbol } from "./platform/composables/exports"
 import { StoreSymbol, StoreOptionsSymbol, type Store } from "./platform/store/store"
 import { installRouter, loadDefaultRoutes, getGlobalRouter } from "./router"
 import { getElement } from "../runtime/elements/index"
@@ -464,7 +464,26 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         setTheme: setHighlightTheme,
     })
 
-    app.provide(ExitSymbol, async () => {
+    // Before-exit interceptor registry — handlers can return false to cancel exit
+    const beforeExitHandlers = new Set<() => boolean | void | Promise<boolean | void>>()
+    const beforeExitRegistry = {
+        add: (fn: () => boolean | void | Promise<boolean | void>) => {
+            beforeExitHandlers.add(fn)
+            return () => beforeExitHandlers.delete(fn)
+        },
+        run: async (): Promise<boolean> => {
+            for (const fn of beforeExitHandlers) {
+                const result = await fn()
+                if (result === false) return false
+            }
+            return true
+        },
+    }
+    app.provide(BeforeExitSymbol, beforeExitRegistry)
+
+    const doExit = async () => {
+        const allowed = await beforeExitRegistry.run()
+        if (!allowed) return
         vtermEvent("vterm:shutdown")
         try {
             await vtermApp.unmount()
@@ -473,7 +492,9 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         } finally {
             process.exit(0)
         }
-    })
+    }
+
+    app.provide(ExitSymbol, doExit)
 
     app.provide(ReloadSymbol, async () => {
         if (options.onReload) {
@@ -689,16 +710,7 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
 
     // Register quit key handlers — in raw mode Ctrl+C is a keypress, not SIGINT,
     // so we must register it explicitly here or it silently does nothing.
-    driver.key(quitKeys, async () => {
-        try {
-            await vtermApp.unmount()
-        } catch {
-            // Ensure terminal is always restored even if unmount fails
-            try { driver.cleanup() } catch { }
-        } finally {
-            process.exit(0)
-        }
-    })
+    driver.key(quitKeys, doExit)
 
     // Call onMounted callback
     if (onMounted) {

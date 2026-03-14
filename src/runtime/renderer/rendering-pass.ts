@@ -376,17 +376,25 @@ export class RenderingPass {
     if (!node.layout) return clipBox
 
     const adjustedY = node.layout.y - parentScrollY
+    const layout = node.layout
+    const borderLeft   = getBorderSide(layout.border, 'left')
+    const borderTop    = getBorderSide(layout.border, 'top')
+    const borderRight  = getBorderSide(layout.border, 'right')
+    const borderBottom = getBorderSide(layout.border, 'bottom')
+    const padding = layout.padding
 
+    // Clip to the content box (inside border + padding) so children never
+    // bleed into padding or border areas — this is what makes padding-bottom clip correctly.
     let own: ClipBox = {
-      x: node.layout.x,
-      y: adjustedY,
-      width: node.layout.width,
-      height: node.layout.height,
+      x: layout.x + borderLeft + padding.left,
+      y: adjustedY + borderTop + padding.top,
+      width: layout.width - borderLeft - borderRight - padding.left - padding.right,
+      height: layout.height - borderTop - borderBottom - padding.top - padding.bottom,
     }
 
     // For scrollable containers with overflow, reserve 1 column for the scrollbar
     if (isScrollableNode(node) && node.contentHeight !== undefined) {
-      const viewportHeight = node.layout.height
+      const viewportHeight = own.height
       if (node.contentHeight > viewportHeight) {
         // Content overflows - reduce width by 1 to reserve space for scrollbar
         own = { ...own, width: Math.max(0, own.width - 1) }
@@ -459,7 +467,15 @@ export class RenderingPass {
       }
 
       if (fillH > 0 && fillW > 0) {
-        const bgCell = createStyledCell(" ", cellStyle)
+        const bgCell = createStyledCell(" ", {
+          color: cellStyle.color ?? null,
+          background: cellStyle.background ?? null,
+          bold: false,
+          underline: false,
+          italic: false,
+          inverse: cellStyle.inverse ?? false,
+          dim: false,
+        })
         this.buffer.fill(fillX, fillY, fillW, fillH, bgCell)
       }
     }
@@ -669,8 +685,7 @@ export class RenderingPass {
           x = contentX + effectiveWidth - clipped.length
         }
 
-        const textToWrite = clipped.padEnd(effectiveWidth - (x - contentX), " ")
-        this.buffer.write(x, y, textToWrite, cellStyle)
+        this.buffer.write(x, y, clipped, cellStyle)
       }
     }
   }

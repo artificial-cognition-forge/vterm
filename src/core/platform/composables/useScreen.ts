@@ -49,6 +49,15 @@ export const HighlightSymbol: InjectionKey<HighlightController> = Symbol("vterm-
 export const ExitSymbol: InjectionKey<() => Promise<void>> = Symbol("vterm-exit")
 
 /**
+ * Injection key for the before-exit interceptor registry.
+ * Handlers return false to cancel the exit, or void/true to allow it.
+ */
+export const BeforeExitSymbol: InjectionKey<{
+    add: (fn: () => boolean | void | Promise<boolean | void>) => () => void
+    run: () => Promise<boolean>
+}> = Symbol("vterm-before-exit")
+
+/**
  * Injection key for the reload function — triggers a full hot reload of the app
  */
 export const ReloadSymbol: InjectionKey<() => Promise<void>> = Symbol("vterm-reload")

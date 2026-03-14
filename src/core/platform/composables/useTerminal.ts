@@ -1,5 +1,5 @@
 import { computed, inject, ref, watch, onMounted, onUnmounted } from "vue"
-import { ScreenSymbol, BufferRendererSymbol, SelectionSymbol, HighlightSymbol, ExitSymbol, ReloadSymbol } from "./useScreen"
+import { ScreenSymbol, BufferRendererSymbol, SelectionSymbol, HighlightSymbol, ExitSymbol, ReloadSymbol, BeforeExitSymbol } from "./useScreen"
 import { useConsole } from "./useConsole"
 import type { NerdFontName } from "../../../runtime/elements/nerd-fonts"
 
@@ -34,6 +34,7 @@ export function useTerminal() {
 	const highlightController = inject(HighlightSymbol)
 	const exitFn = inject(ExitSymbol)
 	const reloadFn = inject(ReloadSymbol)
+	const beforeExitRegistry = inject(BeforeExitSymbol)
 
 	// ── Dimensions ──────────────────────────────────────────────────────────────
 
@@ -249,6 +250,26 @@ export function useTerminal() {
 		 * terminal.exit()
 		 */
 		exit: () => exitFn?.(),
+
+		/**
+		 * Register a handler called before the app exits (via quit key or terminal.exit()).
+		 * Return `false` from the handler to cancel the exit. Any other return value allows it.
+		 * The returned function removes the handler — call it on unmount.
+		 *
+		 * @example
+		 * // Double-press to exit
+		 * const removeGuard = terminal.onBeforeExit(() => {
+		 *   if (!confirmed.value) {
+		 *     confirmed.value = true
+		 *     setTimeout(() => { confirmed.value = false }, 1500)
+		 *     return false  // cancel this exit
+		 *   }
+		 * })
+		 * onUnmounted(removeGuard)
+		 */
+		onBeforeExit: (handler: () => boolean | void | Promise<boolean | void>) => {
+			return beforeExitRegistry?.add(handler) ?? (() => {})
+		},
 
 		/**
 		 * Trigger a full hot reload of the application.
