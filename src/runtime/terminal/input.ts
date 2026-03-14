@@ -247,6 +247,19 @@ export class InputParser extends EventEmitter {
             }
         }
 
+        // Bracketed paste: \x1b[200~ ... \x1b[201~
+        if (this.buffer.startsWith("\x1b[200~")) {
+            const end = this.buffer.indexOf("\x1b[201~")
+            if (end === -1) {
+                // Incomplete — wait for more data
+                return null
+            }
+            const text = this.buffer.slice(6, end)
+            this.buffer = this.buffer.slice(end + 6)
+            this.emit("paste", text)
+            return this.parseNext()
+        }
+
         // Filter out old-style mouse events (\x1b[M) - we only support SGR mode
         if (this.buffer.startsWith("\x1b[M")) {
             const match = this.buffer.match(/^\x1b\[M.../)

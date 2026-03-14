@@ -8,7 +8,7 @@
  * - Manages focus navigation (tab/shift-tab)
  */
 
-import type { LayoutNode } from "../../core/layout/types"
+import type { LayoutNode, EventHandler } from "../../core/layout/types"
 import { isScrollableNode } from "../../core/layout/utils"
 import type { MouseEvent } from "../terminal/input"
 import { getGlobalRouter } from "../../core/router/router"
@@ -320,16 +320,19 @@ export class InteractionManager {
 
         // Fire click event if mouseup is on the same element as mousedown
         if (wasActive === targetNode) {
-            const clickHandler = targetNode.events.get("click")
-            if (clickHandler) {
-                clickHandler(event)
+            // Bubble click/press up the ancestor chain until a handler is found
+            let bubbleNode: LayoutNode | null = targetNode
+            let clickHandler: EventHandler | undefined
+            let pressHandler: EventHandler | undefined
+            while (bubbleNode) {
+                clickHandler = bubbleNode.events.get("click")
+                pressHandler = bubbleNode.events.get("press")
+                if (clickHandler || pressHandler) break
+                bubbleNode = bubbleNode.parent ?? null
             }
 
-            // Also fire 'press' event
-            const pressHandler = targetNode.events.get("press")
-            if (pressHandler) {
-                pressHandler(event)
-            }
+            if (clickHandler) clickHandler(event)
+            if (pressHandler) pressHandler(event)
 
             // Navigate <a href> links — check target and its ancestors.
             // When a <div> or other element is nested inside <a>, the hit test

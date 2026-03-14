@@ -97,6 +97,45 @@ export function useTerminal() {
 		bufferRenderer?.setUIConfig({ nerdfonts: value })
 	})
 
+	// ── Paste / file drop ────────────────────────────────────────────────────────
+
+	const pasteHandlers = new Set<(text: string) => void>()
+	const dropHandlers = new Set<(path: string) => void>()
+
+	const handlePaste = (text: string) => {
+		// A file drop arrives as a path string, often shell-quoted: '/path/to/file'
+		// Strip surrounding single quotes if present, then check if it looks like a path.
+		const trimmed = text.trim()
+		// Terminals shell-quote dropped paths: '/foo/bar' '/baz/qux'
+		// Extract all quoted or unquoted path tokens.
+		const pathTokens: string[] = []
+		const quotedPaths = trimmed.match(/'([^']+)'/g)
+		if (quotedPaths) {
+			for (const q of quotedPaths) {
+				pathTokens.push(q.slice(1, -1))
+			}
+		} else {
+			// No quotes — treat entire trimmed string as a single path candidate
+			pathTokens.push(trimmed)
+		}
+
+		const isPath = (s: string) => /^(~?\/|\.\.?\/|[a-zA-Z]:\\)/.test(s)
+		const droppedPaths = pathTokens.filter(isPath)
+
+		for (const h of pasteHandlers) h(text)
+		for (const p of droppedPaths) {
+			for (const h of dropHandlers) h(p)
+		}
+	}
+
+	onMounted(() => {
+		screen.on("paste", handlePaste)
+	})
+
+	onUnmounted(() => {
+		screen.off("paste", handlePaste)
+	})
+
 	// ── Public API ───────────────────────────────────────────────────────────────
 
 	return {
@@ -175,6 +214,33 @@ export function useTerminal() {
 		 * terminal.nerdfonts.value = false  // disable, show raw name fallback
 		 */
 		nerdfonts: nerdfontsSetting,
+
+		/**
+		 * Register a handler called whenever the user pastes text (or drops a file).
+		 * The raw pasted string is passed to the handler.
+		 * The returned function removes the handler (call it on unmount if needed).
+		 *
+		 * @example
+		 * terminal.onPaste((text) => { inputText.value += text })
+		 */
+		onPaste: (handler: (text: string) => void) => {
+			pasteHandlers.add(handler)
+			return () => pasteHandlers.delete(handler)
+		},
+
+		/**
+		 * Register a handler called when the user drops a file path into the terminal.
+		 * Only fires when the pasted text looks like a file path (starts with / ~ ./ ../).
+		 * The trimmed path string is passed to the handler.
+		 * The returned function removes the handler.
+		 *
+		 * @example
+		 * terminal.onDrop((path) => { inputText.value += path })
+		 */
+		onDrop: (handler: (path: string) => void) => {
+			dropHandlers.add(handler)
+			return () => dropHandlers.delete(handler)
+		},
 
 		/**
 		 * Gracefully exit the application — unmounts the app and restores the terminal.

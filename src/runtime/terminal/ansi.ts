@@ -218,6 +218,24 @@ export class AnsiWriter {
     }
 
     /**
+     * Enables bracketed paste mode.
+     * When active, pasted text (and file drops in most terminals) is wrapped in
+     * \x1b[200~ ... \x1b[201~ so we can distinguish it from typed keys.
+     */
+    enableBracketedPaste(): this {
+        this.output.push("\x1b[?2004h")
+        return this
+    }
+
+    /**
+     * Disables bracketed paste mode.
+     */
+    disableBracketedPaste(): this {
+        this.output.push("\x1b[?2004l")
+        return this
+    }
+
+    /**
      * Resets all styles
      */
     reset(): this {

@@ -19,6 +19,7 @@ export async function initAutoImports(cwd: string = process.cwd()) {
   }
 
   unimportInstance = createUnimport({
+    warn: () => {},
     presets: [
       // Auto-import all vterm APIs
       {

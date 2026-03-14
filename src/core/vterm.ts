@@ -532,15 +532,8 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     // Mount the app — root container fills the terminal so height: 100% resolves correctly.
     // scrollableY: true gives page-level overflow: auto — content taller than the screen
     // can be scrolled without the user having to mark anything explicitly.
-    app.mount(container)
-
-    // Trigger initial layout and render after mount completes
-    await new Promise(resolve => queueMicrotask(resolve))
-
-    immediateRender()
-
-    // Global safety net: catch uncaught exceptions / unhandled rejections so the
-    // terminal never hangs and quit keys keep working.
+    // Global safety net: registered BEFORE mount so errors thrown during
+    // onMounted hooks are captured before the first render.
     const _uncaughtHandler = (err: unknown) => {
         if (vtermError.value === null) setVTermError(err, 'uncaughtException')
     }
@@ -549,6 +542,13 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     }
     process.on('uncaughtException', _uncaughtHandler)
     process.on('unhandledRejection', _rejectionHandler)
+
+    app.mount(container)
+
+    // Trigger initial layout and render after mount completes
+    await new Promise(resolve => queueMicrotask(resolve))
+
+    immediateRender()
 
     // Serialize the current screen buffer to a string snapshot
     const snapshotFn = (opts?: SnapshotOptions): string => {

@@ -88,6 +88,11 @@ export class TerminalDriver extends EventEmitter {
                     }
                 }
             })
+
+            // Forward paste events (bracketed paste / file drop) to driver listeners
+            this.inputParser.on("paste", (text: string) => {
+                this.emit("paste", text)
+            })
         }
 
         // Handle resize
@@ -129,6 +134,8 @@ export class TerminalDriver extends EventEmitter {
         if (this.options.enableMouse) {
             this.writer.enableMouse()
         }
+
+        this.writer.enableBracketedPaste()
 
         this.writer.clearScreen()
         this.writer.writeToStdout()
@@ -298,6 +305,8 @@ export class TerminalDriver extends EventEmitter {
 
         // Restore terminal
         this.writer.reset()
+
+        this.writer.disableBracketedPaste()
 
         if (this.options.enableMouse) {
             this.writer.disableMouse()
