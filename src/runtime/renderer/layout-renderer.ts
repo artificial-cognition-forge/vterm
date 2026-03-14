@@ -12,6 +12,28 @@
  */
 
 import { createRenderer, type VNode } from "vue"
+
+/**
+ * Normalize Vue's :class binding to a flat array of class name strings.
+ * Vue can pass: string, string[], object {name: bool}, or array of mixed.
+ */
+function normalizeClass(value: unknown): string[] {
+    if (!value) return []
+    if (typeof value === "string") return value.split(" ").filter(Boolean)
+    if (Array.isArray(value)) {
+        const result: string[] = []
+        for (const item of value) {
+            result.push(...normalizeClass(item))
+        }
+        return result
+    }
+    if (typeof value === "object") {
+        return Object.entries(value as Record<string, unknown>)
+            .filter(([, v]) => v)
+            .map(([k]) => k)
+    }
+    return []
+}
 import type { LayoutNode, LayoutProperties, VisualStyle } from "../../core/layout/types"
 import type { ParsedStyles } from "../../core/css/types"
 import { getCurrentScopeId } from "../../core/compiler/sfc-loader"
@@ -355,11 +377,7 @@ export function createLayoutRenderer(
 
             // Handle class attribute - resolve styles
             if (key === "class") {
-                const classNames = Array.isArray(nextValue)
-                    ? nextValue
-                    : String(nextValue || "")
-                          .split(" ")
-                          .filter(Boolean)
+                const classNames = normalizeClass(nextValue)
 
                 const uaDefaults = UA_LAYOUT_PROPS[node.type]
                 const { layoutProps: cssLayoutProps, visualStyle } = resolveNodeStyles(
@@ -372,12 +390,18 @@ export function createLayoutRenderer(
                     ? { ...uaDefaults, ...cssLayoutProps }
                     : cssLayoutProps
 
-                // Apply to node
+                // Apply to node — reset style first so removed classes don't persist
                 node.layoutProps = layoutProps
+                for (const key in node.style) delete (node.style as any)[key]
                 Object.assign(node.style, visualStyle)
+
+                // Invalidate effective style cache — class change mutates node.style
+                node._cachedEffectiveStyle = undefined
+                node._cachedStyleState = undefined
 
                 // Store class on props for later reference
                 node.props.class = classNames
+                notifyUpdate()
                 return
             }
 
@@ -404,6 +428,11 @@ export function createLayoutRenderer(
                 node.layoutProps = { ...node.layoutProps, ...layoutProps }
                 Object.assign(node.style, visualStyle)
                 node.props.style = nextValue
+
+                // Invalidate effective style cache — style change mutates node.style
+                node._cachedEffectiveStyle = undefined
+                node._cachedStyleState = undefined
+
                 notifyUpdate()
                 return
             }
@@ -413,6 +442,7 @@ export function createLayoutRenderer(
                 node.content =
                     nextValue !== null && nextValue !== undefined ? String(nextValue) : null
                 node._originalContent = undefined
+                notifyUpdate()
                 return
             }
 

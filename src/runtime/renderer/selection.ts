@@ -80,10 +80,14 @@ export interface NormalizedSelection {
     end: SelectionPoint
 }
 
+/** Minimum cell distance (Chebyshev) the mouse must travel before selection activates */
+const DRAG_THRESHOLD = 2
+
 export class SelectionManager {
     private anchor: SelectionPoint | null = null
     private active: SelectionPoint | null = null
     private dragging = false
+    private thresholdMet = false
     private onChanged?: () => void
     private selectionRgb: RGB
     private selectionOpacity: number
@@ -107,29 +111,38 @@ export class SelectionManager {
                     this.anchor = { x: event.x, y: event.y }
                     this.active = null
                     this.dragging = true
+                    this.thresholdMet = false
                     this.onChanged?.()
                 }
                 break
 
             case 'mousemove':
                 if (this.dragging && this.anchor) {
-                    this.active = { x: event.x, y: event.y }
-                    this.onChanged?.()
+                    const dx = Math.abs(event.x - this.anchor.x)
+                    const dy = Math.abs(event.y - this.anchor.y)
+                    if (!this.thresholdMet && Math.max(dx, dy) >= DRAG_THRESHOLD) {
+                        this.thresholdMet = true
+                    }
+                    if (this.thresholdMet) {
+                        this.active = { x: event.x, y: event.y }
+                        this.onChanged?.()
+                    }
                 }
                 break
 
             case 'mouseup':
                 if (this.dragging) {
                     this.dragging = false
-                    if (this.anchor && this.active) {
-                        // Finalize drag (even same-position drag = single-cell selection)
+                    if (this.anchor && this.active && this.thresholdMet) {
+                        // Finalize drag selection
                         this.onChanged?.()
                     } else {
-                        // Plain click (mousedown + mouseup with no mousemove) — clear selection
+                        // Plain click or sub-threshold move — clear selection
                         this.anchor = null
                         this.active = null
                         this.onChanged?.()
                     }
+                    this.thresholdMet = false
                 }
                 break
         }
@@ -281,5 +294,6 @@ export class SelectionManager {
         this.anchor = null
         this.active = null
         this.dragging = false
+        this.thresholdMet = false
     }
 }

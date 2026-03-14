@@ -5,6 +5,8 @@ import { dev } from "./dev"
 import { init } from "./init"
 import { build } from "./build"
 import { deploy } from "./deploy"
+import { tail } from "./cli/tail"
+import type { LogLevel } from "./build/logger"
 
 // Bundled apps shipped with vterm — maps CLI command → app dir name
 const BUNDLED_APPS: Record<string, string> = {
@@ -15,8 +17,12 @@ const BUNDLED_APPS: Record<string, string> = {
 const { values, positionals } = parseArgs({
     args: Bun.argv.slice(2),
     options: {
-        config: { type: "string", short: "c" },
-        help: { type: "boolean", short: "h" },
+        config:     { type: "string",  short: "c" },
+        help:       { type: "boolean", short: "h" },
+        level:      { type: "string",  short: "l" },
+        filter:     { type: "string",  short: "f" },
+        follow:     { type: "boolean" },
+        "no-follow": { type: "boolean" },
     },
     allowPositionals: true,
 })
@@ -32,12 +38,16 @@ if (values.help || !command) {
     console.log(`  init [dir]    Initialize a new vterm project`)
     console.log(`  build         Generate type declarations and configuration`)
     console.log(`  dev           Start development server`)
+    console.log(`  tail          Stream dev logs from .vterm/dev.log.jsonl`)
     console.log(`  deploy        Publish package to npm`)
     console.log(`  docs          Launch the vterm documentation browser`)
     console.log()
     console.log(`Options:`)
-    console.log(`  --config, -c  Path to vterm.config.ts`)
-    console.log(`  --help, -h    Show this help message`)
+    console.log(`  --config, -c      Path to vterm.config.ts`)
+    console.log(`  --help, -h        Show this help message`)
+    console.log(`  --level,  -l      Filter tail by level (log|info|warn|error|debug)`)
+    console.log(`  --filter, -f      Filter tail by substring`)
+    console.log(`  --no-follow       Print existing log entries and exit`)
     process.exit(values.help ? 0 : 1)
 }
 
@@ -63,6 +73,15 @@ switch (command) {
     case "deploy": {
         const configPath = values.config || "vterm.config.ts"
         await deploy(configPath)
+        break
+    }
+
+    case "tail": {
+        await tail({
+            level: values.level as LogLevel | undefined,
+            filter: values.filter,
+            follow: !values["no-follow"],
+        })
         break
     }
 

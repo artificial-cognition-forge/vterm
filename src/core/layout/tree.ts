@@ -934,7 +934,6 @@ export class LayoutEngine {
                     const childParentX = child.layoutProps.position === "absolute" ? x + borderL : contentX
                     const childParentY = child.layoutProps.position === "absolute" ? y + borderT : contentY
 
-
                     this.computeNodeLayout(
                         child,
                         contentWidth,
@@ -943,6 +942,21 @@ export class LayoutEngine {
                         childParentY,
                         childFlexDir
                     )
+
+                    // If the child has an explicit fixed width (e.g. `width: 34`) that is
+                    // narrower than contentWidth, its own children were computed using
+                    // contentWidth as their container — meaning `width: 100%` inside the child
+                    // resolves against the wrong base. Re-run the child's subtree now that
+                    // its actual width is known.
+                    // Only trigger for explicit pixel widths (typeof number), not auto/percent/shrink.
+                    if (
+                        child.layout &&
+                        child.children.length > 0 &&
+                        typeof child.layoutProps.width === 'number' &&
+                        child.layout.width < contentWidth
+                    ) {
+                        this.relayoutSubtreeChildren(child)
+                    }
                 }
 
                 // OPT-19: Combine pre-flex capture and flexChildren filtering into single pass
@@ -1039,6 +1053,15 @@ export class LayoutEngine {
                 // Block layout - stack children vertically.
                 // Absolutely positioned children are out-of-flow and must not advance currentY.
                 let currentY = contentY
+
+                // When this block container has no explicit width (shrink-to-content in a flex-row
+                // parent), compute children using the available container width but in "row" flex
+                // context so they also shrink to their natural content width rather than filling.
+                // The container will then auto-expand to the widest child below.
+                const isShrinkContainer = width === 0 && layoutProps.width === undefined
+                const effectiveChildWidth = isShrinkContainer ? containerWidth : contentWidth
+                const effectiveChildFlexDir = isShrinkContainer ? "row" : undefined
+
                 for (const child of node.children) {
                     const isAbsolute = child.layoutProps.position === "absolute"
                     // For absolutely positioned children, use border-box position as parent position
@@ -1047,11 +1070,11 @@ export class LayoutEngine {
                     const childParentY = isAbsolute ? y + borderT : currentY
                     this.computeNodeLayout(
                         child,
-                        contentWidth,
+                        effectiveChildWidth,
                         contentHeight,
                         childParentX,
                         childParentY,
-                        undefined
+                        effectiveChildFlexDir
                     )
                     if (child.layout && !isAbsolute) {
                         // display: none children contribute zero height

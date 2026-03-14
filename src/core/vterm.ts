@@ -24,6 +24,7 @@ import { getElement } from "../runtime/elements/index"
 import { setHighlightCallback, configureHighlighter, setHighlightTheme, getHighlightTheme } from "../runtime/elements/highlighter"
 import { setVTermError, vtermError } from "./platform/error-state"
 import { installConsoleCapture, uninstallConsoleCapture } from "./platform/composables/useConsole"
+import { vtermEvent } from "../build/events"
 import type { VTermOptions, VTermApp, SnapshotOptions } from "../types/types"
 import type { ParsedStyles } from "./css/types"
 import type { LayoutNode } from "./layout/types"
@@ -32,13 +33,18 @@ import type { LayoutNode } from "./layout/types"
  * Create a terminal app using custom terminal rendering
  */
 export async function vterm(options: VTermOptions): Promise<VTermApp> {
+    const _bootStart = Date.now()
     const { entry, layout, onMounted, quitKeys = ['C-c'], highlight, selection, ui, context } = options
+
+    vtermEvent("vterm:boot", { cwd: process.cwd() })
 
     // Capture console output before anything else so no early logs are missed
     installConsoleCapture()
+    vtermEvent("vterm:console:capture")
 
     // Configure syntax highlighter before any components load
     if (highlight) configureHighlighter(highlight)
+    vtermEvent("vterm:highlight:config", { theme: highlight?.theme })
 
     // Initialize input parser for keyboard events
     const inputParser = new InputParser()
@@ -52,30 +58,24 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
 
     // Initialize driver (raw mode, alternate screen, etc.)
     driver.initialize()
+    vtermEvent("vterm:driver:init", { width: driver.width, height: driver.height })
+
+    // Declare early so callbacks below can safely close over it without hitting the TDZ.
+    // performLayout is also declared here as a stable indirection — the real implementation
+    // is assigned later once all dependencies are ready. This avoids TDZ crashes when
+    // input events fire during the async boot gap before performLayout is initialized.
+    let currentLayoutRoot: LayoutNode | null = null
+    let _doLayout: ((root: LayoutNode) => void) | null = null
+    const triggerLayout = () => { if (currentLayoutRoot && _doLayout) _doLayout(currentLayoutRoot) }
 
     // Initialize interaction manager with both state change and render callbacks
     const interactionManager = new InteractionManager(
-        () => {
-            // Trigger re-render when interactive state changes (hover, focus, active)
-            // Use performLayout (not just performRender) so cursor position is updated on focus changes
-            if (currentLayoutRoot) {
-                performLayout(currentLayoutRoot)
-            }
-        },
-        () => {
-            // Trigger render when element behavior changes state
-            if (currentLayoutRoot) {
-                performLayout(currentLayoutRoot)
-            }
-        }
+        triggerLayout,
+        triggerLayout,
     )
 
     // Initialize selection manager
-    const selectionManager = new SelectionManager(() => {
-        if (currentLayoutRoot) {
-            performLayout(currentLayoutRoot)
-        }
-    }, selection)
+    const selectionManager = new SelectionManager(triggerLayout, selection)
 
     // Listen to mouse events — forward to both managers independently
     inputParser.on("mouse", mouseEvent => {
@@ -117,10 +117,9 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
             selectionManager.copyToClipboard(buffer)
         }
 
-        // Trigger re-render for wheel scroll and selection changes
-        if (mouseEvent.type === 'wheelup' || mouseEvent.type === 'wheeldown' || selectionManager.hasSelection()) {
-            scheduleRender()
-        }
+        // Always re-render after mouse events — press handlers may mutate reactive
+        // state (e.g. class bindings) that won't show until the next paint.
+        scheduleRender()
     })
 
     // Route keypresses to focused interactive elements via the element behavior registry.
@@ -135,9 +134,7 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         if (!behavior?.handleKey) return
 
         try {
-            behavior.handleKey(focused, key, () => {
-                if (currentLayoutRoot) performLayout(currentLayoutRoot)
-            })
+            behavior.handleKey(focused, key, triggerLayout)
         } catch (err) {
             if (vtermError.value === null) setVTermError(err, 'event')
         }
@@ -172,31 +169,30 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     }
 
     // Allow the async syntax highlighter to trigger re-renders when tokens are ready
-    setHighlightCallback(() => {
-        if (currentLayoutRoot) performLayout(currentLayoutRoot)
-    })
+    setHighlightCallback(triggerLayout)
 
     // Load layout component if needed
     let layoutComponent: any = null
+    let _layoutPath: string | null = null
     if (layout !== false) {
         try {
             const { resolve } = await import("path")
             const { existsSync } = await import("fs")
 
-            let layoutPath: string | null = null
             if (typeof layout === "string") {
-                layoutPath = resolve(process.cwd(), layout)
+                _layoutPath = resolve(process.cwd(), layout)
             } else {
-                layoutPath = resolve(process.cwd(), "app/app.vue")
+                _layoutPath = resolve(process.cwd(), "app/app.vue")
             }
 
-            if (layoutPath && existsSync(layoutPath)) {
-                layoutComponent = await loadSFC(layoutPath)
+            if (_layoutPath && existsSync(_layoutPath)) {
+                layoutComponent = await loadSFC(_layoutPath)
             }
         } catch (error) {
-            // No layout - continue
+            _layoutPath = null
         }
     }
+    vtermEvent("vterm:layout:load", { path: _layoutPath })
 
     // Load file-based routes
     let routes: any[] = []
@@ -280,6 +276,11 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         }
     }
 
+    vtermEvent("vterm:routes:load", {
+        count: routes.length,
+        paths: routes.map((r: any) => r.path ?? r.name ?? "?"),
+    })
+
     // Load per-page layouts from app/layout/ directory
     const layoutsMap = new Map<string, any>()
     try {
@@ -299,6 +300,8 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     } catch {
         // No layouts directory - skip
     }
+
+    vtermEvent("vterm:layouts:load", { names: [...layoutsMap.keys()] })
 
     // Load the built-in error page — always available regardless of routing setup
     const { resolve: _resolvePath } = await import("path")
@@ -352,8 +355,6 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     // Initialize layout engine with terminal dimensions and styles (for CSS variable resolution)
     const layoutEngine = createLayoutEngine(driver.width, driver.height, allStyles)
 
-    // Track the current layout root for reflow on resize
-    let currentLayoutRoot: LayoutNode | null = null
 
     // Guard: prevent an error-page render failure from looping
     let _errorRecoveryActive = false
@@ -402,6 +403,9 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         }
     }
 
+    // Wire up the stable indirection now that performLayout is fully initialized
+    _doLayout = performLayout
+
     // Allow directives (e.g. _vModelText) to trigger a terminal re-render after
     // they update internal node state — they run after patchProp's notifyUpdate().
     registerRenderCallback(() => {
@@ -443,8 +447,11 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     }
     driver.on("resize", resizeHandler)
 
+    vtermEvent("vterm:component:build", { mode: routes.length > 0 ? (layoutComponent ? "layout" : "router") : "entry" })
+
     // Create Vue app
     const app = createApp(component)
+    vtermEvent("vterm:app:create")
 
     // Provide terminal driver and render function
     app.provide(ScreenSymbol, driver)
@@ -458,6 +465,7 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     })
 
     app.provide(ExitSymbol, async () => {
+        vtermEvent("vterm:shutdown")
         try {
             await vtermApp.unmount()
         } catch {
@@ -543,12 +551,15 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
     process.on('uncaughtException', _uncaughtHandler)
     process.on('unhandledRejection', _rejectionHandler)
 
+    vtermEvent("vterm:app:mount")
     app.mount(container)
 
     // Trigger initial layout and render after mount completes
     await new Promise(resolve => queueMicrotask(resolve))
 
     immediateRender()
+
+    vtermEvent("vterm:boot:complete", { durationMs: Date.now() - _bootStart })
 
     // Serialize the current screen buffer to a string snapshot
     const snapshotFn = (opts?: SnapshotOptions): string => {

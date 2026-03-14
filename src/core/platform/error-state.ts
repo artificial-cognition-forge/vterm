@@ -1,4 +1,5 @@
 import { ref } from "vue"
+import { vtermEvent } from "../../build/events"
 
 export interface VTermError {
     message: string
@@ -15,6 +16,7 @@ export function setVTermError(error: unknown, source?: string): void {
         stack: err.stack,
         source,
     }
+    vtermEvent("vterm:error", { source: source ?? "unknown", message: err.message })
 }
 
 export function clearVTermError(): void {
