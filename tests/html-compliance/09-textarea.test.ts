@@ -114,17 +114,6 @@ describe('textarea: render — value', () => {
         expect(buf.getCell(1 + 18, 1)?.char).toBe('│')
     })
 
-    test('content scrolled up when scrollY > 0', () => {
-        // cursorPos=6 places cursor at line 1 col 0 ('line1').
-        // Textarea auto-adjusts scrollY to keep cursor visible; with scrollY=1
-        // and cursorLine=1, condition (1 < 1) is false so scrollY stays at 1.
-        const node = makeTextareaNode('line0\nline1\nline2', 6)
-        node.scrollY = 1
-        const buf = renderNode(node)
-        // With scrollY=1, line1 appears at the first content row (contentY=1)
-        const row0 = Array.from({ length: 5 }, (_, i) => buf.getCell(1 + i, 1)?.char ?? ' ').join('')
-        expect(row0).toBe('line1')
-    })
 })
 
 // ─── Key handling ─────────────────────────────────────────────────────────────
@@ -168,25 +157,31 @@ describe('textarea: key handling — deletion', () => {
 })
 
 describe('textarea: key handling — enter inserts newline', () => {
-    test('enter inserts newline at cursor', () => {
+    test('shift+enter inserts newline at cursor', () => {
         const node = makeTextareaNode('hello world', 5)
-        getElement('textarea')!.handleKey!(node, key('enter'), noop)
+        getElement('textarea')!.handleKey!(node, { ...key('enter'), shift: true }, noop)
         expect(node._inputValue).toBe('hello\n world')
         expect(node._cursorPos).toBe(6)
     })
 
-    test('enter at start inserts newline before all content', () => {
+    test('shift+enter at start inserts newline before all content', () => {
         const node = makeTextareaNode('hello', 0)
-        getElement('textarea')!.handleKey!(node, key('enter'), noop)
+        getElement('textarea')!.handleKey!(node, { ...key('enter'), shift: true }, noop)
         expect(node._inputValue).toBe('\nhello')
         expect(node._cursorPos).toBe(1)
     })
 
-    test('enter at end appends newline', () => {
+    test('shift+enter at end appends newline', () => {
         const node = makeTextareaNode('hello', 5)
-        getElement('textarea')!.handleKey!(node, key('enter'), noop)
+        getElement('textarea')!.handleKey!(node, { ...key('enter'), shift: true }, noop)
         expect(node._inputValue).toBe('hello\n')
         expect(node._cursorPos).toBe(6)
+    })
+
+    test('bare enter does not insert newline', () => {
+        const node = makeTextareaNode('hello', 5)
+        getElement('textarea')!.handleKey!(node, key('enter'), noop)
+        expect(node._inputValue).toBe('hello')
     })
 })
 

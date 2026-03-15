@@ -336,11 +336,19 @@ export class RenderingPass {
     // Walk up the parent chain and apply each parent's viewport as a clip boundary
     let current = node.parent
     while (current && current.layout) {
+      const bl = getBorderSide(current.layout.border, 'left')
+      const bt = getBorderSide(current.layout.border, 'top')
+      const br = getBorderSide(current.layout.border, 'right')
+      const bb = getBorderSide(current.layout.border, 'bottom')
+      const pl = current.layout.padding.left
+      const pt = current.layout.padding.top
+      const pr = current.layout.padding.right
+      const pb = current.layout.padding.bottom
       const parentClip: ClipBox = {
-        x: current.layout.x,
-        y: current.layout.y,
-        width: current.layout.width,
-        height: current.layout.height,
+        x: current.layout.x + bl + pl,
+        y: current.layout.y + bt + pt,
+        width: current.layout.width - bl - br - pl - pr,
+        height: current.layout.height - bt - bb - pt - pb,
       }
 
       if (clipBox) {

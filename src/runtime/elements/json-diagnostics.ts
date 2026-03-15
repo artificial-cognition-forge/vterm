@@ -76,13 +76,13 @@ export function validateJson(jsonText: string, schema: object): EditorDiagnostic
     return validate.errors.map(err => {
         const instancePath = err.instancePath ?? ''
         const line = resolvePathToLine(jsonText, tree, instancePath)
-        const prop = err.params && 'missingProperty' in err.params
+        const missingProp = err.params && 'missingProperty' in err.params
             ? ` '${(err.params as any).missingProperty}'`
-            : instancePath ? ` at ${instancePath}` : ''
+            : ''
         return {
             line,
             severity: 'error' as const,
-            message: `${err.message ?? 'validation error'}${prop}`,
+            message: `${err.message ?? 'validation error'}${missingProp}`,
         }
     })
 }

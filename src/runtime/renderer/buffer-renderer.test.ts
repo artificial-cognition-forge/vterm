@@ -1074,16 +1074,19 @@ describe('BufferRenderer — text overflow clipping', () => {
     expect(buf.getCell(10, 0)?.char).toBe(' ')   // x=10 outside box
   })
 
-  test('multiline text each line is independently clipped', () => {
+  test('multiline text wraps at container width', () => {
+    // Text wider than container width is wrapped, not clipped.
+    // 'ABCDE12345\nFGHIJ67890\nKLMNO' with width=5:
+    //   'ABCDE12345' wraps → row 0: 'ABCDE', row 1: '12345'
+    //   'FGHIJ67890' wraps → row 2: 'FGHIJ' (container height=3 cuts off '67890')
     const buf = render(10, 3,
       h('div', { class: 'box' }, 'ABCDE12345\nFGHIJ67890\nKLMNO'),
       { '.box': { width: 5, height: 3 } }
     )
 
-    // Each line clipped to 5 chars
     expect(rowSlice(buf, 0, 0, 5)).toBe('ABCDE')
-    expect(rowSlice(buf, 1, 0, 5)).toBe('FGHIJ')
-    expect(rowSlice(buf, 2, 0, 5)).toBe('KLMNO')
+    expect(rowSlice(buf, 1, 0, 5)).toBe('12345')
+    expect(rowSlice(buf, 2, 0, 5)).toBe('FGHIJ')
     // Beyond container width: blank
     expect(buf.getCell(5, 0)?.char).toBe(' ')
   })

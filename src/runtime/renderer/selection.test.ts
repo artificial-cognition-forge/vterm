@@ -318,7 +318,7 @@ describe('SelectionManager - applyHighlight', () => {
         buf.writeCell(3, 0, { char: 'X', color: null, background: '#cc0000', bold: false, underline: false, italic: false, inverse: false, dim: false })
 
         const mgr = makeManager()
-        drag(mgr, 3, 0, 3, 0)
+        drag(mgr, 0, 0, 5, 0)  // drag far enough to meet threshold, covers x=3
         mgr.applyHighlight(buf)
 
         const cell = buf.getCell(3, 0)

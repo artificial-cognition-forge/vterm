@@ -740,13 +740,16 @@ const editorBehavior: ElementBehavior = {
         const schemaDiagnostics: EditorDiagnostic[] = node._schemaDiagnostics ?? []
         const allDiagnostics: Diagnostic[] = [...propDiagnostics, ...schemaDiagnostics]
 
-        const diagnosticLines = new Map<number, 'error' | 'warning'>()
+        const diagnosticLines = new Map<number, { severity: 'error' | 'warning'; message: string }>()
         for (const d of allDiagnostics) {
             const hardLine = d.line - 1 // convert 1-based to 0-based
-            if (!diagnosticLines.has(hardLine) || d.severity === 'error') {
-                diagnosticLines.set(hardLine, d.severity ?? 'error')
+            const existing = diagnosticLines.get(hardLine)
+            if (!existing || d.severity === 'error') {
+                diagnosticLines.set(hardLine, { severity: d.severity ?? 'error', message: d.message ?? '' })
             }
         }
+
+        const inlineMessages = node.props['diagnosticsDisplay'] !== 'hover'
 
         const visualLines = buildVisualLines(value, contentWidth)
         const { vLine: cursorVLine } = getVisualPos(visualLines, cursorPos)
@@ -844,9 +847,9 @@ const editorBehavior: ElementBehavior = {
                 }
 
                 const isBracketHL = !inSel && j < vl.text.length && (absPos === bracketA || absPos === bracketB)
-                const diagSeverity = diagnosticLines.get(vl.hardLine)
-                const isDiag = !inSel && diagSeverity !== undefined && j < vl.text.length
-                const diagColor = isDiag ? (diagSeverity === 'error' ? '#ff5555' : '#ffaa00') : null
+                const diag = diagnosticLines.get(vl.hardLine)
+                const isDiag = !inSel && diag !== undefined && j < vl.text.length && char !== ' '
+                const diagColor = isDiag ? (diag!.severity === 'error' ? '#ff5555' : '#ffaa00') : null
                 buffer.writeCell(x, screenY, {
                     char,
                     color:      isBracketHL ? '#ffcc00' : diagColor ?? tokenColor,
@@ -857,6 +860,31 @@ const editorBehavior: ElementBehavior = {
                     inverse:    false,
                     dim:        false,
                 })
+            }
+
+            // Inline diagnostic message — rendered after line content, clipped to editor width
+            if (inlineMessages) {
+                const diag = diagnosticLines.get(vl.hardLine)
+                if (diag && diag.message) {
+                    const msgColor = diag.severity === 'error' ? '#ff5555' : '#ffaa00'
+                    const lineEndX = contentX + vl.text.length
+                    const gap = 2 // spaces between code and message
+                    const msgStartX = lineEndX + gap
+                    if (msgStartX < clipRight) {
+                        const available = clipRight - msgStartX
+                        const msg = ' ' + diag.message
+                        const truncated = msg.length > available ? msg.slice(0, available - 1) + '…' : msg
+                        buffer.write(msgStartX, screenY, truncated, {
+                            color: msgColor,
+                            background: cellStyle.background ?? null,
+                            bold: false,
+                            underline: false,
+                            italic: true,
+                            dim: true,
+                            inverse: false,
+                        })
+                    }
+                }
             }
         }
     },

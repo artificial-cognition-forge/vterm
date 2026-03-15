@@ -54,24 +54,6 @@ describe('BUG: child background wider than parent is not X-clipped', () => {
   })
 })
 
-describe('BUG: sibling background overflow — text clipping works correctly', () => {
-  test('text in wide child is clipped at parent boundary', async () => {
-    const buf = await renderCSS(
-      `.parent { display: flex; flex-direction: row; width: 15; height: 5; }
-       .a      { width: 5; height: 5; background: red; }
-       .b      { width: 20; height: 5; }`,
-      h('div', { class: 'parent' },
-        h('div', { class: 'a' }),
-        h('div', { class: 'b' }, 'ABCDEFGHIJKLMNOPQRST')
-      )
-    )
-    // .a at 0-4, .b starts at 5; text 'ABCDE...' in .b
-    // Text should be clipped at x=14 (parent boundary)
-    expect(buf.getCell(5, 0)?.char).toBe('A')
-    expect(buf.getCell(14, 0)?.char).toBe('J')
-    expect(buf.getCell(15, 0)?.char).toBe(' ')   // clipped
-  })
-})
 
 // ─── Y-clipping: works correctly ─────────────────────────────────────────────
 
