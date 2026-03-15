@@ -304,6 +304,8 @@ export interface LayoutNode {
 
     // CSS scope ID (set when node belongs to a scoped SFC style block)
     _scopeId?: string
+    // Additional scope IDs stamped by ancestor components (via setScopeId renderer hook)
+    _extraScopeIds?: string[]
 
     // Original VNode data (for debugging)
     _vnode?: any

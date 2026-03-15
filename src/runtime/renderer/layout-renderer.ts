@@ -89,6 +89,8 @@ let nodeIdCounter = 0
  * Create a layout node from element type and props
  */
 export function createLayoutNodeElement(type: string, styles: ParsedStyles = {}): LayoutNode {
+    // Scope ID is stamped later via setScopeId() once Vue knows the vnode's scopeId.
+    // Start with no scopeId — it will be applied by the renderer's setScopeId hook.
     const scopeId = getCurrentScopeId() ?? undefined
 
     // Apply UA defaults first, then user CSS overrides
@@ -202,7 +204,8 @@ function resolveNodeStyles(
     nodeType: string,
     classNames: string[],
     styles: ParsedStyles,
-    scopeId?: string
+    scopeId?: string,
+    extraScopeIds?: string[]
 ): { layoutProps: LayoutProperties; visualStyle: VisualStyle } {
     let layoutProps: LayoutProperties = {}
     let visualStyle: VisualStyle = {}
@@ -213,15 +216,20 @@ function resolveNodeStyles(
         ;({ layoutProps, visualStyle } = applyStyleBlock(typeStyle, layoutProps, visualStyle))
     }
 
-    // 2. Scoped element-type styles (only if this node belongs to a scoped component)
-    if (scopeId) {
-        const scopedTypeStyle = styles[`${scopeId}\x00${nodeType}`]
+    // Collect all scope IDs to try (own + extras from ancestor components)
+    const scopeIds: string[] = []
+    if (scopeId) scopeIds.push(scopeId)
+    if (extraScopeIds) scopeIds.push(...extraScopeIds)
+
+    // 2. Scoped element-type styles (for each scope ID)
+    for (const sid of scopeIds) {
+        const scopedTypeStyle = styles[`${sid}\x00${nodeType}`]
         if (scopedTypeStyle) {
             ;({ layoutProps, visualStyle } = applyStyleBlock(scopedTypeStyle, layoutProps, visualStyle))
         }
     }
 
-    // 3 & 4. Class-based styles (global then scoped)
+    // 3 & 4. Class-based styles (global then scoped for each scope ID)
     for (const className of classNames) {
         // Global class
         const classStyle = styles[`.${className}`]
@@ -229,9 +237,9 @@ function resolveNodeStyles(
             ;({ layoutProps, visualStyle } = applyStyleBlock(classStyle, layoutProps, visualStyle))
         }
 
-        // Scoped class (only for nodes that carry a scope ID)
-        if (scopeId) {
-            const scopedClassStyle = styles[`${scopeId}\x00.${className}`]
+        // Scoped class for each known scope ID
+        for (const sid of scopeIds) {
+            const scopedClassStyle = styles[`${sid}\x00.${className}`]
             if (scopedClassStyle) {
                 ;({ layoutProps, visualStyle } = applyStyleBlock(scopedClassStyle, layoutProps, visualStyle))
             }
@@ -384,7 +392,8 @@ export function createLayoutRenderer(
                     node.type,
                     classNames,
                     styles,
-                    node._scopeId
+                    node._scopeId,
+                    node._extraScopeIds
                 )
                 const layoutProps: LayoutProperties = uaDefaults
                     ? { ...uaDefaults, ...cssLayoutProps }
@@ -412,7 +421,8 @@ export function createLayoutRenderer(
                     node.type,
                     node.props.class ?? [],
                     styles,
-                    node._scopeId
+                    node._scopeId,
+                    node._extraScopeIds
                 )
                 const layoutProps: LayoutProperties = uaDefaults
                     ? { ...uaDefaults, ...cssLayoutProps }
@@ -544,6 +554,44 @@ export function createLayoutRenderer(
             // Return [element, anchor] for Vue runtime
             // The anchor is used for tracking where to insert next elements
             return [textNode, textNode]
+        },
+
+        // Called by Vue after creating/patching an element when the component has
+        // a __scopeId. Vue calls this both for the component's own scopeId and for
+        // ancestor component scopeIds (so slot content can be styled by the parent).
+        // We accumulate all scope IDs rather than replacing, so the node's own
+        // scoped styles remain applicable alongside any ancestor scope IDs.
+        setScopeId(node: LayoutNode, scopeId: string) {
+            // If the node has no own scopeId yet, treat this as the primary one.
+            // Otherwise accumulate into _extraScopeIds so we try all of them.
+            if (!node._scopeId) {
+                node._scopeId = scopeId
+            } else if (node._scopeId !== scopeId) {
+                if (!node._extraScopeIds) node._extraScopeIds = []
+                if (!node._extraScopeIds.includes(scopeId)) {
+                    node._extraScopeIds.push(scopeId)
+                }
+            }
+
+            // Re-resolve styles with all known scope IDs
+            const uaDefaults = UA_LAYOUT_PROPS[node.type]
+            const { layoutProps: cssLayoutProps, visualStyle: merged } = resolveNodeStyles(
+                node.type,
+                node.props.class ?? [],
+                styles,
+                node._scopeId,
+                node._extraScopeIds
+            )
+            const layoutProps: LayoutProperties = uaDefaults
+                ? { ...uaDefaults, ...cssLayoutProps }
+                : cssLayoutProps
+
+            node.layoutProps = { ...node.layoutProps, ...layoutProps }
+            for (const key in node.style) delete (node.style as any)[key]
+            Object.assign(node.style, merged)
+
+            node._cachedEffectiveStyle = undefined
+            node._cachedStyleState = undefined
         },
     })
 

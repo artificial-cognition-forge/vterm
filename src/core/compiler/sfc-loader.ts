@@ -1,5 +1,6 @@
 import { parse, compileScript, compileTemplate, parseCache } from "@vue/compiler-sfc"
 import { resolve, dirname } from "path"
+import { createHash } from "crypto"
 import * as vue from "vue"
 import { transform } from "sucrase"
 import * as router from "../router/index"
@@ -303,13 +304,20 @@ export async function loadSFC(filepath: string): Promise<any> {
     }
 
     // Compile the script with inline template
-    // (Must happen before style processing so we can extract Vue's generated scopeId)
+    // Generate a deterministic scope ID for this file so scoped CSS selectors are
+    // namespaced per-component and don't collide with identically-named selectors
+    // in other components.
+    const hasScopedStyles = descriptor.styles?.some(s => s.scoped)
+    const scopeId = hasScopedStyles
+        ? `data-v-${createHash("sha256").update(absolutePath).digest("hex").slice(0, 8)}`
+        : null
+
     let script = ""
     const componentImports: Record<string, any> = {}
 
     if (descriptor.script || descriptor.scriptSetup) {
         const compiled = compileScript(descriptor, {
-            id: absolutePath,
+            id: scopeId ?? absolutePath,
             inlineTemplate: true,
             templateOptions: {
                 compilerOptions: {
@@ -390,18 +398,11 @@ export async function loadSFC(filepath: string): Promise<any> {
         script = "const _sfc_main = {}"
     }
 
-    // Process styles now that we have the compiled script (and can extract scopeId).
-    // Vue embeds the generated scope ID as `const __scopeId = "data-v-xxxxxxxx"` in
-    // the compiled output when scoped styles are present. We read it from there so
-    // our style key encoding always stays in sync with what _pushScopeId will push.
     if (descriptor.styles && descriptor.styles.length > 0) {
-        const vueScopeIdMatch = script.match(/const\s+__scopeId\s*=\s*["']([^"']+)["']/)
-        const vueScopeId = vueScopeIdMatch?.[1] ?? null
-
         const styleBlocks = descriptor.styles.map(s => ({
             content: s.content,
             scoped: s.scoped ?? false,
-            scopeId: (s.scoped && vueScopeId) ? vueScopeId : undefined,
+            scopeId: (s.scoped && scopeId) ? scopeId : undefined,
             lang: s.lang ?? undefined,
         }))
 
@@ -439,6 +440,12 @@ export async function loadSFC(filepath: string): Promise<any> {
 
     // Execute with the module scope
     const component = componentFactory(...Object.values(moduleScope))
+
+    // Attach __scopeId so Vue's renderer calls pushScopeId/popScopeId during render,
+    // which lets the layout renderer stamp each LayoutNode and match scoped CSS rules.
+    if (scopeId && component && typeof component === 'object') {
+        component.__scopeId = scopeId
+    }
 
     // Cache the component
     componentCache.set(absolutePath, component)

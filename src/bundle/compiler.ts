@@ -1,5 +1,15 @@
 import { parse, compileScript, compileTemplate } from "@vue/compiler-sfc"
 import { resolve, dirname, relative, basename, join } from "path"
+import { createHash } from "crypto"
+
+/**
+ * Generate a deterministic scope ID for a Vue SFC, matching Vue's own convention.
+ * Uses a short hash of the file path so each component gets a unique, stable ID.
+ */
+function generateScopeId(filePath: string): string {
+    const hash = createHash("sha256").update(filePath).digest("hex").slice(0, 8)
+    return `data-v-${hash}`
+}
 
 // Absolute path to the prod runtime — used as import target in compiled SFC modules
 // so bun build never has to resolve package.json exports of @arcforge/vterm.
@@ -100,12 +110,20 @@ export async function compileSFCToJS(filePath: string): Promise<string> {
         throw new Error(`SFC parse errors in ${filePath}:\n${errors.map(String).join("\n")}`)
     }
 
+    // Generate a deterministic scope ID for this file. We use this both to
+    // namespace scoped style selectors and to stamp the component object with
+    // __scopeId so Vue's render pipeline calls pushScopeId/popScopeId around
+    // each component's render, letting the layout renderer tag each LayoutNode
+    // with the right scope and match only the correct scoped CSS rules.
+    const hasScopedStyles = descriptor.styles?.some(s => s.scoped)
+    const scopeId = hasScopedStyles ? generateScopeId(absolutePath) : null
+
     let script = ""
     const componentImportLines: string[] = []
 
     if (descriptor.script || descriptor.scriptSetup) {
         const compiled = compileScript(descriptor, {
-            id: absolutePath,
+            id: scopeId ?? absolutePath,
             inlineTemplate: true,
             templateOptions: {
                 compilerOptions: {
@@ -167,6 +185,13 @@ export async function compileSFCToJS(filePath: string): Promise<string> {
         if (!script.includes("const _sfc_main")) {
             script = "const _sfc_main = {}\n" + script
         }
+
+        // Inject __scopeId onto the component so Vue's renderer calls
+        // pushScopeId/popScopeId around each render, letting the layout renderer
+        // tag LayoutNodes and match scoped CSS selectors correctly.
+        if (scopeId) {
+            script += `\n_sfc_main.__scopeId = ${JSON.stringify(scopeId)}`
+        }
     } else if (descriptor.template) {
         const compiledTemplate = compileTemplate({
             id: absolutePath,
@@ -186,17 +211,16 @@ export async function compileSFCToJS(filePath: string): Promise<string> {
         script = "const _sfc_main = {}"
     }
 
-    // Extract CSS block (styles are handled at runtime via the existing CSS pipeline)
-    // We embed the raw CSS string in the module so the runtime extractor can process it.
+    // Extract CSS blocks — embed raw CSS so the runtime CSS pipeline can process them.
+    // For scoped blocks, include the file-level scopeId so styles are namespaced and
+    // only match nodes rendered by this component.
     const styleBlocks: Array<{ content: string; scoped: boolean; scopeId?: string; lang?: string }> = []
     if (descriptor.styles?.length) {
-        const vueScopeIdMatch = script.match(/const\s+__scopeId\s*=\s*["']([^"']+)["']/)
-        const vueScopeId = vueScopeIdMatch?.[1] ?? null
         for (const s of descriptor.styles) {
             styleBlocks.push({
                 content: s.content,
                 scoped: s.scoped ?? false,
-                scopeId: s.scoped && vueScopeId ? vueScopeId : undefined,
+                scopeId: s.scoped && scopeId ? scopeId : undefined,
                 lang: s.lang ?? undefined,
             })
         }

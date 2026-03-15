@@ -348,9 +348,20 @@ export async function vterm(options: VTermOptions): Promise<VTermApp> {
         },
     })
 
-    // Get all styles from the global styles registry (populated by loadSFC)
+    // Get all styles from the global styles registry (populated by loadSFC).
+    // Use the live Map directly as the backing store and expose a Proxy so the
+    // layout renderer always sees styles registered after boot (e.g. lazy-loaded
+    // page components that add new scoped rules on first navigation).
     const globalStylesMap = getAllStyles()
-    const allStyles: ParsedStyles = Object.fromEntries(globalStylesMap.entries())
+    const allStyles: ParsedStyles = new Proxy({} as ParsedStyles, {
+        get(_, key: string) { return globalStylesMap.get(key) },
+        has(_, key: string) { return globalStylesMap.has(key) },
+        ownKeys() { return [...globalStylesMap.keys()] },
+        getOwnPropertyDescriptor(_, key: string) {
+            if (!globalStylesMap.has(key)) return undefined
+            return { value: globalStylesMap.get(key), writable: true, enumerable: true, configurable: true }
+        },
+    })
 
     // Initialize layout engine with terminal dimensions and styles (for CSS variable resolution)
     const layoutEngine = createLayoutEngine(driver.width, driver.height, allStyles)
