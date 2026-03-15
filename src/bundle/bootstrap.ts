@@ -77,15 +77,26 @@ export async function generateBootstrap(
     const routes = await scanRoutes(cwd).catch(() => [])
     const routeVars: Array<{ path: string; name: string; meta?: Record<string, any>; varName: string; stylesVar: string }> = []
 
-    // Also import all component SFCs (not just pages) for their styles
+    // Import component SFCs for their styles, and layout SFCs as named components too
     const componentStylesVars: string[] = []
+    const layoutVars: Array<{ name: string; varName: string; stylesVar: string }> = []
     for (const sfcEntry of compiled) {
         const rel = relative(cwd, sfcEntry.sourcePath)
-        if (!rel.startsWith("app/components") && !rel.startsWith("app/layout")) continue
-        const varName = `_Mod_${sfcEntry.outputPath.replace(/[^a-zA-Z0-9]/g, "_")}`
-        const stylesVar = `${varName}__styles`
-        lines.push(`import { __styles as ${stylesVar} } from "${sfcEntry.importSpecifier}"`)
-        componentStylesVars.push(stylesVar)
+        if (rel.startsWith("app/layout")) {
+            // Layout SFC: import the component + its styles, and register in layouts map
+            const layoutName = rel.replace(/^app\/layout\//, "").replace(/\.vue$/, "").replace(/\//g, "-")
+            const varName = `_Layout_${layoutName.replace(/[^a-zA-Z0-9]/g, "_")}`
+            const stylesVar = `${varName}__styles`
+            lines.push(`import ${varName}, { __styles as ${stylesVar} } from "${sfcEntry.importSpecifier}"`)
+            componentStylesVars.push(stylesVar)
+            layoutVars.push({ name: layoutName, varName, stylesVar })
+        } else if (rel.startsWith("app/components")) {
+            // Component SFC: import only styles
+            const varName = `_Mod_${sfcEntry.outputPath.replace(/[^a-zA-Z0-9]/g, "_")}`
+            const stylesVar = `${varName}__styles`
+            lines.push(`import { __styles as ${stylesVar} } from "${sfcEntry.importSpecifier}"`)
+            componentStylesVars.push(stylesVar)
+        }
     }
 
     for (const route of routes) {
@@ -125,6 +136,12 @@ export async function generateBootstrap(
     ]
     if (allStylesVars.length > 0) {
         configLines.push(`    styles: [${allStylesVars.join(", ")}],`)
+    }
+
+    // Pass per-page layout components as a Map
+    if (layoutVars.length > 0) {
+        const mapEntries = layoutVars.map(l => `[${JSON.stringify(l.name)}, ${l.varName}]`).join(", ")
+        configLines.push(`    layouts: new Map([${mapEntries}]),`)
     }
 
     // Serialize scalar config options

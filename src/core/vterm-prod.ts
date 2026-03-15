@@ -150,8 +150,8 @@ export async function vtermProd(options: VTermOptions): Promise<VTermApp> {
     const routes: any[] = options.routes ?? []
 
     // Per-page layouts come in via options.layouts (Map<name, component>)
-    const layoutsMap: Map<string, any> = (options as any).layouts instanceof Map
-        ? (options as any).layouts
+    const layoutsMap: Map<string, any> = options.layouts instanceof Map
+        ? options.layouts
         : new Map()
 
     vtermEvent("vterm:routes:load", {
@@ -295,7 +295,8 @@ export async function vtermProd(options: VTermOptions): Promise<VTermApp> {
     app.config.warnHandler = () => {}
     app.config.performance = false
     app.config.compilerOptions.isCustomElement = () => true
-    app.config.errorHandler = (err: unknown) => {
+    app.config.errorHandler = (err: unknown, instance: any, info: string) => {
+        process.stderr.write("VUE ERROR [" + info + "]: " + String((err as any)?.stack ?? err) + "\n")
         if (vtermError.value === null) setVTermError(err, 'vue')
     }
 

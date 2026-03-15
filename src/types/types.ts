@@ -193,6 +193,9 @@ export interface VTermOptions {
     /** Pre-extracted style blocks from compiled SFCs (production only). */
     styles?: Array<{ content: string; scoped: boolean; scopeId?: string }>[]
 
+    /** Per-page layout components keyed by layout name (production only). */
+    layouts?: Map<string, object>
+
     /** Called after the app is mounted */
     onMounted?: (app: VTermApp) => void
 

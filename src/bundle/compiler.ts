@@ -82,8 +82,18 @@ export async function compileSFCToJS(filePath: string): Promise<string> {
     const absolutePath = resolve(filePath)
     let source = await Bun.file(absolutePath).text()
 
-    // Inject auto-imports as static import statements
-    source = await transformWithAutoImports(source, absolutePath)
+    // Inject auto-imports into the script setup block specifically.
+    // unimport injects import statements at the top of the string it receives.
+    // If we pass the entire SFC, the injected imports land OUTSIDE <script setup>
+    // and are silently discarded by the SFC parser. Instead, we extract the script
+    // block content, inject into that, then splice it back into the SFC source.
+    const scriptSetupMatch = source.match(/(<script\s[^>]*setup[^>]*>)([\s\S]*?)(<\/script>)/i)
+        ?? source.match(/(<script>)([\s\S]*?)(<\/script>)/i)
+    if (scriptSetupMatch) {
+        const [fullMatch, openTag, scriptContent, closeTag] = scriptSetupMatch
+        const transformedScript = await transformWithAutoImports(scriptContent, absolutePath)
+        source = source.replace(fullMatch, `${openTag}${transformedScript}${closeTag}`)
+    }
 
     const { descriptor, errors } = parse(source, { filename: absolutePath })
     if (errors.length) {
@@ -178,7 +188,7 @@ export async function compileSFCToJS(filePath: string): Promise<string> {
 
     // Extract CSS block (styles are handled at runtime via the existing CSS pipeline)
     // We embed the raw CSS string in the module so the runtime extractor can process it.
-    const styleBlocks: Array<{ content: string; scoped: boolean; scopeId?: string }> = []
+    const styleBlocks: Array<{ content: string; scoped: boolean; scopeId?: string; lang?: string }> = []
     if (descriptor.styles?.length) {
         const vueScopeIdMatch = script.match(/const\s+__scopeId\s*=\s*["']([^"']+)["']/)
         const vueScopeId = vueScopeIdMatch?.[1] ?? null
@@ -187,6 +197,7 @@ export async function compileSFCToJS(filePath: string): Promise<string> {
                 content: s.content,
                 scoped: s.scoped ?? false,
                 scopeId: s.scoped && vueScopeId ? vueScopeId : undefined,
+                lang: s.lang ?? undefined,
             })
         }
     }

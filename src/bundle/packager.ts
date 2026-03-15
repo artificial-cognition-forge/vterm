@@ -43,6 +43,12 @@ export async function runBundler(
     const prodRuntimePath = resolve(dirname(import.meta.path), "../runtime/prod.ts")
     const vtermDir = dirname(bootstrapPath)
 
+    // Resolve the single canonical vue path from the user's app directory so
+    // both the compiled SFCs and vterm's runtime share the same Vue instance.
+    const { createRequire } = await import("module")
+    const appRequire = createRequire(resolve(cwd, "package.json"))
+    const canonicalVuePath = appRequire.resolve("vue")
+
     // Write a bun build runner script in .vterm/ that uses the programmatic API.
     // This lets us use a plugin to handle @arcforge/vterm aliasing AND auto-imports
     // injection for user .ts composable files.
@@ -54,6 +60,7 @@ import { initAutoImports } from ${JSON.stringify(resolve(dirname(import.meta.pat
 await initAutoImports(${JSON.stringify(cwd)})
 
 const prodRuntime = ${JSON.stringify(prodRuntimePath)}
+const canonicalVue = ${JSON.stringify(canonicalVuePath)}
 
 const result = await Bun.build({
     entrypoints: [${JSON.stringify(bootstrapPath)}],
@@ -68,6 +75,13 @@ const result = await Bun.build({
                 // Redirect @arcforge/vterm to prod runtime (no compiler chain)
                 build.onResolve({ filter: /^@arcforge\\/vterm$/ }, () => ({
                     path: prodRuntime,
+                }))
+                // Deduplicate vue — redirect all imports to the app's own vue so
+                // vterm's runtime and the compiled SFCs share a single Vue instance.
+                // Without this, bun bundles vterm's node_modules/vue separately and
+                // inject/getCurrentInstance calls fail with "null is not an object".
+                build.onResolve({ filter: /^vue$/ }, () => ({
+                    path: canonicalVue,
                 }))
                 // Apply auto-imports to user .ts files so bare ref/computed etc. resolve
                 build.onLoad({ filter: /\\.ts$/ }, async (args) => {
