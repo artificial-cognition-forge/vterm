@@ -181,11 +181,17 @@ export function defineVtermConfig(config: Partial<VTermConfig> = {}): VTermConfi
  * Runtime options for vterm() function
  */
 export interface VTermOptions {
-    /** Path to Vue SFC entry point (ignored if using file-based routing) */
-    entry?: string
+    /** Entry component — path string (dev) or pre-compiled component object (production) */
+    entry?: string | object
 
-    /** Optional path to layout component (default: app/app.vue if it exists) */
-    layout?: string | false
+    /** Layout component — path string (dev), pre-compiled component object (prod), or false */
+    layout?: string | object | false
+
+    /** Pre-compiled routes (production only). Each route must have .component set. */
+    routes?: Array<{ path: string; component: object; name?: string; meta?: Record<string, any> }>
+
+    /** Pre-extracted style blocks from compiled SFCs (production only). */
+    styles?: Array<{ content: string; scoped: boolean; scopeId?: string }>[]
 
     /** Called after the app is mounted */
     onMounted?: (app: VTermApp) => void

@@ -36,7 +36,7 @@ function normalizeClass(value: unknown): string[] {
 }
 import type { LayoutNode, LayoutProperties, VisualStyle } from "../../core/layout/types"
 import type { ParsedStyles } from "../../core/css/types"
-import { getCurrentScopeId } from "../../core/compiler/sfc-loader"
+import { getCurrentScopeId } from "../../core/compiler/scope-id"
 import { decodeScopedKey } from "../../core/css/transformer"
 import { transformDeclaration } from "../../core/css/declaration-transformer"
 

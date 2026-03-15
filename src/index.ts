@@ -4,6 +4,7 @@ import { resolve } from "path"
 import { dev } from "./dev"
 import { init } from "./init"
 import { build } from "./build"
+import { bundle } from "./bundle"
 import { deploy } from "./deploy"
 import { tail } from "./cli/tail"
 import type { LogLevel } from "./build/logger"
@@ -17,12 +18,19 @@ const BUNDLED_APPS: Record<string, string> = {
 const { values, positionals } = parseArgs({
     args: Bun.argv.slice(2),
     options: {
-        config:     { type: "string",  short: "c" },
-        help:       { type: "boolean", short: "h" },
-        level:      { type: "string",  short: "l" },
-        filter:     { type: "string",  short: "f" },
-        follow:     { type: "boolean" },
+        config:      { type: "string",  short: "c" },
+        help:        { type: "boolean", short: "h" },
+        level:       { type: "string",  short: "l" },
+        filter:      { type: "string",  short: "f" },
+        follow:      { type: "boolean" },
         "no-follow": { type: "boolean" },
+        // bundle options
+        outdir:      { type: "string" },
+        binary:      { type: "boolean" },
+        "no-minify": { type: "boolean" },
+        sourcemap:   { type: "boolean" },
+        name:        { type: "string" },
+        version:     { type: "string" },
     },
     allowPositionals: true,
 })
@@ -36,7 +44,8 @@ if (values.help || !command) {
     console.log()
     console.log(`Commands:`)
     console.log(`  init [dir]    Initialize a new vterm project`)
-    console.log(`  build         Generate type declarations and configuration`)
+    console.log(`  prepare       Generate type declarations and configuration`)
+    console.log(`  build         Build a production package in .output/`)
     console.log(`  dev           Start development server`)
     console.log(`  tail          Stream dev logs from .vterm/dev.log.jsonl`)
     console.log(`  deploy        Publish package to npm`)
@@ -48,6 +57,14 @@ if (values.help || !command) {
     console.log(`  --level,  -l      Filter tail by level (log|info|warn|error|debug)`)
     console.log(`  --filter, -f      Filter tail by substring`)
     console.log(`  --no-follow       Print existing log entries and exit`)
+    console.log()
+    console.log(`Bundle options:`)
+    console.log(`  --outdir <dir>    Output directory (default: dist/)`)
+    console.log(`  --binary          Also produce a standalone executable`)
+    console.log(`  --no-minify       Disable minification`)
+    console.log(`  --sourcemap       Emit source maps`)
+    console.log(`  --name <name>     Override package name`)
+    console.log(`  --version <ver>   Override package version`)
     process.exit(values.help ? 0 : 1)
 }
 
@@ -58,9 +75,21 @@ switch (command) {
         break
     }
 
-    case "build":
     case "prepare": {
         await build()
+        break
+    }
+
+    case "build": {
+        const configPath = values.config || "vterm.config.ts"
+        await bundle(configPath, {
+            outdir: values.outdir,
+            binary: values.binary,
+            minify: values["no-minify"] ? false : true,
+            sourcemap: values.sourcemap,
+            name: values.name,
+            version: values.version,
+        })
         break
     }
 
@@ -99,7 +128,8 @@ switch (command) {
         console.error()
         console.error(`Commands:`)
         console.error(`  init [dir]    Initialize a new vterm project`)
-        console.error(`  build         Generate type declarations and configuration`)
+        console.error(`  prepare       Generate type declarations and configuration`)
+        console.error(`  build         Build a production package in .output/`)
         console.error(`  dev           Start development server`)
         console.error(`  deploy        Publish package to npm`)
         console.error(`  docs          Launch the vterm documentation browser`)

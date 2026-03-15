@@ -8,6 +8,7 @@ import * as store from "../platform/store/store"
 import { vtermError, clearVTermError } from "../platform/error-state"
 import { transformWithAutoImports, getRuntimeComposables } from "../../build/auto-imports"
 import { extractSFCStyles } from "../css"
+import { vModelText, vModelCheckbox, vModelRadio, vModelSelect, vModelDynamic } from "./directives"
 
 // Cache to prevent circular dependencies and duplicate loads
 const componentCache = new Map<string, any>()
@@ -47,24 +48,15 @@ function useFileBasedRoutesSync(): any[] {
 }
 
 // ─── CSS Scope ID stack ────────────────────────────────────────────────────
-// _pushScopeId / _popScopeId are called by Vue's compiled render functions
-// whenever a component with scoped styles renders its template. We track the
-// current scope ID on a stack so the layout renderer can read it via
-// getCurrentScopeId() and stamp each created LayoutNode with the right ID.
-const _scopeStack: string[] = []
-
-export function getCurrentScopeId(): string | null {
-    return _scopeStack.length > 0 ? _scopeStack[_scopeStack.length - 1]! : null
-}
+// Delegated to scope-id.ts so layout-renderer.ts can import it without
+// pulling in the full compiler chain (@vue/compiler-sfc etc).
+export { getCurrentScopeId } from "./scope-id"
+import { pushScopeId, popScopeId } from "./scope-id"
 // ──────────────────────────────────────────────────────────────────────────
 
-// Render callback registered by the vterm runtime so directives can trigger
-// a terminal re-render after they update internal node state.
-let _requestRender: (() => void) | null = null
-
-export function registerRenderCallback(fn: () => void): void {
-    _requestRender = fn
-}
+// Render callback for directives — delegated to shared directives module
+export { setDirectiveRenderCallback as registerRenderCallback } from "./directives"
+import { setDirectiveRenderCallback } from "./directives"
 
 // Shared module scope - created once and reused for all components
 const STATIC_MODULE_SCOPE = Object.freeze({
@@ -145,33 +137,15 @@ const STATIC_MODULE_SCOPE = Object.freeze({
     // node's internal _inputValue so that programmatic resets (e.g. `input.value = ""`)
     // are reflected in the rendered input.  We only overwrite if the values differ so
     // that normal user-typing (where emitUpdate already kept them in sync) is unaffected.
-    _vModelText: {
-        beforeMount(el: any, binding: any) {
-            const val = String(binding.value ?? '')
-            el._inputValue = val
-            el._cursorPos = val.length
-        },
-        mounted() {},
-        beforeUpdate() {},
-        updated(el: any, binding: any) {
-            const newVal = String(binding.value ?? '')
-            if (el._inputValue !== newVal) {
-                el._inputValue = newVal
-                el._cursorPos = newVal.length
-                // Trigger a terminal re-render — Vue's patchProp fired notifyUpdate()
-                // before this directive hook ran, so the old _inputValue was rendered.
-                _requestRender?.()
-            }
-        },
-    },
-    _vModelCheckbox: { beforeMount() {}, mounted() {}, beforeUpdate() {}, updated() {} },
-    _vModelRadio: { beforeMount() {}, mounted() {}, beforeUpdate() {}, updated() {} },
-    _vModelSelect: { beforeMount() {}, mounted() {}, beforeUpdate() {}, updated() {} },
-    _vModelDynamic: { beforeMount() {}, mounted() {}, beforeUpdate() {}, updated() {} },
+    _vModelText: vModelText,
+    _vModelCheckbox: vModelCheckbox,
+    _vModelRadio: vModelRadio,
+    _vModelSelect: vModelSelect,
+    _vModelDynamic: vModelDynamic,
     _vShow: vue.vShow,
     _renderSlot: vue.renderSlot,
-    _pushScopeId: (id: string) => { _scopeStack.push(id) },
-    _popScopeId: () => { _scopeStack.pop() },
+    _pushScopeId: pushScopeId,
+    _popScopeId: popScopeId,
     _createStaticVNode: vue.createStaticVNode,
     _setBlockTracking: vue.setBlockTracking,
 })

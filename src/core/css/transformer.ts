@@ -33,8 +33,10 @@ function deepMerge<T extends Record<string, any>>(target: T, source: T): T {
 export async function transformCSSToLayout(css: string): Promise<ParsedStyles> {
   const styles: ParsedStyles = {}
 
+  // Strip // line comments — PostCSS only supports /* */ comments
+  const sanitized = css.replace(/\/\/[^\n]*/g, "")
   // Process CSS with postcss-nested to flatten nested rules
-  const result = await postcss([nested]).process(css, { from: undefined })
+  const result = await postcss([nested]).process(sanitized, { from: undefined })
   const root = result.root
 
   root.walkRules((rule) => {

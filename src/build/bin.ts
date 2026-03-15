@@ -15,8 +15,11 @@ export async function buildBin(): Promise<void> {
     const name: string = pkg.name
     if (!name) return
 
+    // For scoped packages like @scope/name, use only the unscoped part as the bin filename
+    const binName = name.includes("/") ? name.split("/").pop()! : name
+
     const binDir = resolve(cwd, "bin")
-    const outFile = join(binDir, name)
+    const outFile = join(binDir, binName)
 
     if (!existsSync(binDir)) {
         mkdirSync(binDir, { recursive: true })
@@ -34,8 +37,8 @@ export async function buildBin(): Promise<void> {
     writeFileSync(outFile, script, "utf-8")
     chmodSync(outFile, 0o755)
 
-    pkg.bin = { [name]: `./bin/${name}` }
+    pkg.bin = { [binName]: `./bin/${binName}` }
     writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8")
 
-    console.log(`✓ bin/${name} written`)
+    console.log(`✓ bin/${binName} written`)
 }

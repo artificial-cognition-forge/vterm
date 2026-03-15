@@ -18,6 +18,10 @@
             "types": "./src/runtime/index.ts",
             "default": "./src/runtime/index.ts"
         },
+        "./runtime/prod": {
+            "types": "./src/runtime/prod.ts",
+            "default": "./src/runtime/prod.ts"
+        },
         "./testing": {
             "types": "./src/testing/index.ts",
             "default": "./src/testing/index.ts"

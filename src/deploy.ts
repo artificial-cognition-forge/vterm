@@ -1,5 +1,6 @@
 import { resolve } from "path"
 import { loadConfig } from "./build/config"
+import { bundle } from "./bundle"
 
 async function run(cmd: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
     const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" })
@@ -77,6 +78,14 @@ export async function deploy(configPath: string): Promise<void> {
         publishArgs.push("--registry", npmConfig.registry)
     }
     publishArgs.push("--access", npmConfig.access ?? "public")
+
+    // Build production bundle first
+    console.log("Building production bundle...")
+    console.log()
+    await bundle(configPath, { name: npmConfig.name })
+
+    const distDir = resolve(process.cwd(), "dist")
+    publishArgs.push(distDir)
 
     console.log(`  Running: ${publishArgs.join(" ")}`)
     console.log()
