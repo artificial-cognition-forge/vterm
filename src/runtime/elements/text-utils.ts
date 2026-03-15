@@ -216,3 +216,65 @@ export function findWordBoundary(text: string, pos: number, direction: 'left' | 
         return i
     }
 }
+
+// ---------------------------------------------------------------------------
+// Undo / redo history
+// ---------------------------------------------------------------------------
+
+const MAX_UNDO = 200
+
+/**
+ * Push the current value+cursor onto the undo stack, truncating any redo entries.
+ * Call this BEFORE mutating _inputValue so the old state is saved.
+ */
+export function pushUndoState(node: LayoutNode): void {
+    const stack = node._undoStack ?? []
+    const index = node._undoIndex ?? stack.length - 1
+
+    // Discard all redo entries ahead of current position
+    const trimmed = stack.slice(0, index + 1)
+
+    trimmed.push({ value: node._inputValue!, cursor: node._cursorPos! })
+    if (trimmed.length > MAX_UNDO) trimmed.shift()
+
+    node._undoStack = trimmed
+    node._undoIndex = trimmed.length - 1
+}
+
+/**
+ * Undo: move one step back in history. Returns true if state changed.
+ */
+export function applyUndo(node: LayoutNode): boolean {
+    const stack = node._undoStack
+    if (!stack || stack.length === 0) return false
+
+    const index = node._undoIndex ?? stack.length - 1
+    if (index <= 0) return false
+
+    const prev = stack[index - 1]!
+    node._undoIndex = index - 1
+    node._inputValue = prev.value
+    node._cursorPos = prev.cursor
+    node._selectionStart = prev.cursor
+    node._selectionEnd = prev.cursor
+    return true
+}
+
+/**
+ * Redo: move one step forward in history. Returns true if state changed.
+ */
+export function applyRedo(node: LayoutNode): boolean {
+    const stack = node._undoStack
+    if (!stack || stack.length === 0) return false
+
+    const index = node._undoIndex ?? stack.length - 1
+    if (index >= stack.length - 1) return false
+
+    const next = stack[index + 1]!
+    node._undoIndex = index + 1
+    node._inputValue = next.value
+    node._cursorPos = next.cursor
+    node._selectionStart = next.cursor
+    node._selectionEnd = next.cursor
+    return true
+}

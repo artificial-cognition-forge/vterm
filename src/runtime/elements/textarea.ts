@@ -6,6 +6,7 @@ import {
     buildVisualLines, getVisualPos, getCursorLineCol, getFlatPos, findWordBoundary,
     getNodeValue, emitNodeUpdate, insertText, deleteSelection,
     getContentGeometry, getAdjustedContentGeometry,
+    pushUndoState, applyUndo, applyRedo,
 } from './text-utils'
 
 const getValue = getNodeValue
@@ -18,6 +19,8 @@ function ensureState(node: LayoutNode): void {
         node._prevCursorPos = node._cursorPos
         node._selectionStart = node._cursorPos
         node._selectionEnd = node._cursorPos
+        node._undoStack = [{ value: node._inputValue, cursor: node._cursorPos }]
+        node._undoIndex = 0
     }
 }
 
@@ -29,6 +32,17 @@ const textareaBehavior: ElementBehavior = {
         const pos = node._cursorPos!
         let selStart = node._selectionStart ?? pos
         let selEnd = node._selectionEnd ?? pos
+
+        // Handle Ctrl+Z (undo) and Ctrl+Shift+Z (redo)
+        if (key.ctrl && key.name === 'z') {
+            if (key.shift) {
+                if (applyRedo(node)) emitUpdate(node)
+            } else {
+                if (applyUndo(node)) emitUpdate(node)
+            }
+            requestRender()
+            return
+        }
 
         // Handle Ctrl+A (select all)
         if (key.ctrl && key.name === 'a') {
@@ -163,12 +177,14 @@ const textareaBehavior: ElementBehavior = {
         }
 
         if (key.name === 'backspace') {
+            pushUndoState(node)
             const r = deleteSelection(val, pos, selStart, selEnd, false)
             node._inputValue = r.value
             node._cursorPos = r.cursor
             node._selectionStart = r.cursor
             node._selectionEnd = r.cursor
         } else if (key.name === 'delete') {
+            pushUndoState(node)
             const r = deleteSelection(val, pos, selStart, selEnd, true)
             node._inputValue = r.value
             node._cursorPos = r.cursor
@@ -257,6 +273,7 @@ const textareaBehavior: ElementBehavior = {
             node._selectionEnd = node._cursorPos
         } else if (key.name === 'enter' && key.shift) {
             // Shift+Enter inserts a newline (normal textarea behavior)
+            pushUndoState(node)
             const r = insertText(val, pos, '\n', selStart, selEnd)
             node._inputValue = r.value
             node._cursorPos = r.cursor
@@ -267,6 +284,7 @@ const textareaBehavior: ElementBehavior = {
             // Applications can bind useKeys('enter', ...) to handle submission
             return
         } else if (!key.ctrl && !key.meta && key.sequence && key.sequence.length === 1) {
+            pushUndoState(node)
             const r = insertText(val, pos, key.sequence, selStart, selEnd)
             node._inputValue = r.value
             node._cursorPos = r.cursor

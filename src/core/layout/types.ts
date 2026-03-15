@@ -281,6 +281,8 @@ export interface LayoutNode {
     _selectionStart?: number
     _selectionEnd?: number
     _prevCursorPos?: number
+    _undoStack?: Array<{ value: string; cursor: number }>
+    _undoIndex?: number
 
     // Editor element state
     _editorMode?: 'normal' | 'insert'

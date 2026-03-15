@@ -7,6 +7,7 @@ import {
     getNodeValue, emitNodeUpdate,
     getContentGeometry as getSharedContentGeometry,
     getAdjustedContentGeometry as getSharedAdjustedContentGeometry,
+    pushUndoState, applyUndo, applyRedo,
 } from './text-utils'
 import { getHighlightedLines } from './highlighter'
 
@@ -38,6 +39,8 @@ function ensureState(node: LayoutNode): void {
     if (node._inputValue === undefined) {
         node._inputValue = getValue(node)
         node._cursorPos = node._inputValue.length
+        node._undoStack = [{ value: node._inputValue, cursor: node._cursorPos }]
+        node._undoIndex = 0
         node._prevCursorPos = node._cursorPos
         node._selectionStart = node._cursorPos
         node._selectionEnd = node._cursorPos
@@ -279,6 +282,7 @@ function handleVimNormal(node: LayoutNode, key: KeyEvent, requestRender: () => v
     // Open new line below / above
     if (key.name === 'o' && !key.ctrl) {
         node._editorMode = 'insert'; node._editorPendingKey = ''
+        pushUndoState(node)
         const lineEnd = getLineEnd(val, pos)
         const indent = getLineIndent(val, pos)
         node._inputValue = val.slice(0, lineEnd) + '\n' + indent + val.slice(lineEnd)
@@ -287,6 +291,7 @@ function handleVimNormal(node: LayoutNode, key: KeyEvent, requestRender: () => v
     }
     if (key.name === 'O' && !key.ctrl) {
         node._editorMode = 'insert'; node._editorPendingKey = ''
+        pushUndoState(node)
         const lineStart = getLineStart(val, pos)
         const indent = getLineIndent(val, pos)
         node._inputValue = val.slice(0, lineStart) + indent + '\n' + val.slice(lineStart)
@@ -326,6 +331,7 @@ function handleVimNormal(node: LayoutNode, key: KeyEvent, requestRender: () => v
     // x — delete char
     if (key.name === 'x' && !key.ctrl) {
         if (pos < val.length && val[pos] !== '\n') {
+            pushUndoState(node)
             node._inputValue = val.slice(0, pos) + val.slice(pos + 1)
             setCursor(node, pos)
             emitUpdate(node)
@@ -336,6 +342,7 @@ function handleVimNormal(node: LayoutNode, key: KeyEvent, requestRender: () => v
     // dd — delete line, yy — yank line
     if (key.name === 'd' && !key.ctrl) {
         if (pending === 'd') {
+            pushUndoState(node)
             const lineStart = getLineStart(val, pos), lineEnd = getLineEnd(val, pos)
             node._editorYankBuffer = val.slice(lineStart, lineEnd)
             let removeStart = lineStart, removeEnd = lineEnd
@@ -359,6 +366,7 @@ function handleVimNormal(node: LayoutNode, key: KeyEvent, requestRender: () => v
     if (key.name === 'p' && !key.ctrl) {
         const yank = node._editorYankBuffer ?? ''
         if (yank.length > 0) {
+            pushUndoState(node)
             const lineEnd = getLineEnd(val, pos)
             node._inputValue = val.slice(0, lineEnd) + '\n' + yank + val.slice(lineEnd)
             setCursor(node, lineEnd + 1)
@@ -416,8 +424,15 @@ function handleInsert(node: LayoutNode, key: KeyEvent, requestRender: () => void
         requestRender(); return
     }
 
-    // Ctrl+Z — undo (stub, no-op for now — keeps key from being typed)
-    if (key.ctrl && key.name === 'z') { requestRender(); return }
+    // Ctrl+Z — undo, Ctrl+Shift+Z — redo
+    if (key.ctrl && key.name === 'z') {
+        if (key.shift) {
+            if (applyRedo(node)) emitUpdate(node)
+        } else {
+            if (applyUndo(node)) emitUpdate(node)
+        }
+        requestRender(); return
+    }
 
     // Ctrl+Left / Right — word jump (+ Shift to select)
     if (key.ctrl && (key.name === 'left' || key.name === 'right')) {
@@ -485,6 +500,7 @@ function handleInsert(node: LayoutNode, key: KeyEvent, requestRender: () => void
 
     // Keys that clear sticky col and modify text
     node._editorStickyCol = undefined
+    pushUndoState(node)
 
     if (key.name === 'backspace') {
         if (hasSelection) {

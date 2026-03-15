@@ -495,7 +495,12 @@ export class LayoutEngine {
             )
 
             let flexContentHeight = contentHeight
-            if (node.layout.height === 0 && flexChildren.length > 0 && !isScrollableNode(node)) {
+            // If this container has no explicit height, recalculate from children's
+            // post-relayout sizes. Text wrapping can increase child heights (e.g. a <p>
+            // node that was height=1 becomes height=2 after wrapping), so the container
+            // must be re-sized before running computeFlexLayout — otherwise flex-shrink
+            // will compress the children back to fit the stale (too-small) container.
+            if (node.layoutProps.height === undefined && flexChildren.length > 0 && !isScrollableNode(node)) {
                 const isRowContainer = childFlexDir === "row"
                 const effectiveGap = isRowContainer
                     ? (flexConfig.columnGap ?? flexConfig.gap)
@@ -558,6 +563,11 @@ export class LayoutEngine {
                 if (child.layout && !isAbsolute) {
                     currentY += child.layout.height + child.layout.margin.bottom
                 }
+            }
+            // If this container has no explicit height, update it to fit the re-laid-out children.
+            if (node.layoutProps.height === undefined && !isScrollableNode(node)) {
+                const totalChildHeight = currentY - contentY
+                node.layout.height = totalChildHeight + padding.top + padding.bottom + borderT + borderB
             }
         }
 
