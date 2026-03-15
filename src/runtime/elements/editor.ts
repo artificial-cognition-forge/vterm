@@ -10,6 +10,7 @@ import {
     pushUndoState, applyUndo, applyRedo,
 } from './text-utils'
 import { getHighlightedLines } from './highlighter'
+import { validateJson, type EditorDiagnostic } from './json-diagnostics'
 
 // ---------------------------------------------------------------------------
 // Auto-closing bracket/quote pairs
@@ -50,7 +51,25 @@ function ensureState(node: LayoutNode): void {
         node._editorStickyCol = undefined
         node._editorDragActive = false
         node._editorSelAnchor = node._cursorPos
+        node._schemaDiagnostics = []
+        node._schemaValidateTimer = undefined
     }
+}
+
+/** Schedule a debounced JSON schema validation (300 ms after last change). */
+function scheduleSchemaValidation(node: LayoutNode, requestRender: () => void): void {
+    const schema = node.props.schema
+    if (!schema || typeof schema !== 'object') return
+
+    if (node._schemaValidateTimer !== undefined) {
+        clearTimeout(node._schemaValidateTimer as ReturnType<typeof setTimeout>)
+    }
+    node._schemaValidateTimer = setTimeout(() => {
+        node._schemaValidateTimer = undefined
+        const text = node._inputValue ?? getValue(node)
+        node._schemaDiagnostics = validateJson(text, schema as object)
+        requestRender()
+    }, 300)
 }
 
 function getIndentSize(node: LayoutNode): number {
@@ -600,7 +619,10 @@ function handleInsert(node: LayoutNode, key: KeyEvent, requestRender: () => void
         }
     }
 
-    if (node._inputValue !== val) emitUpdate(node)
+    if (node._inputValue !== val) {
+        emitUpdate(node)
+        scheduleSchemaValidation(node, requestRender)
+    }
     requestRender()
 }
 
@@ -705,11 +727,21 @@ const editorBehavior: ElementBehavior = {
         const lang = String(node.props.lang ?? 'text')
         const highlighted = getHighlightedLines(value, lang)
 
-        // Build a set of hard-line indices (0-based) that have diagnostics
+        // Trigger initial schema validation when schema prop is present and no run has happened yet
+        const schemaFromProp = node.props.schema
+        if (schemaFromProp && typeof schemaFromProp === 'object' && node._schemaDiagnostics === undefined) {
+            node._schemaDiagnostics = validateJson(value, schemaFromProp as object)
+        }
+
+        // Build a set of hard-line indices (0-based) that have diagnostics.
+        // Merge manually-passed :diagnostics prop with schema-derived diagnostics.
         type Diagnostic = { line: number; message?: string; severity?: 'error' | 'warning' }
-        const diagnostics = (node.props.diagnostics ?? []) as Diagnostic[]
+        const propDiagnostics = (node.props.diagnostics ?? []) as Diagnostic[]
+        const schemaDiagnostics: EditorDiagnostic[] = node._schemaDiagnostics ?? []
+        const allDiagnostics: Diagnostic[] = [...propDiagnostics, ...schemaDiagnostics]
+
         const diagnosticLines = new Map<number, 'error' | 'warning'>()
-        for (const d of diagnostics) {
+        for (const d of allDiagnostics) {
             const hardLine = d.line - 1 // convert 1-based to 0-based
             if (!diagnosticLines.has(hardLine) || d.severity === 'error') {
                 diagnosticLines.set(hardLine, d.severity ?? 'error')

@@ -295,6 +295,8 @@ export interface LayoutNode {
     _editorLastClickPos?: number  // cursor pos of last mousedown (double-click detection)
     _editorAdjustedY?: number     // adjusted Y stored during render (fixes selection hit-test skew)
     _editorHoverPos?: number      // flat cursor position under the mouse pointer (bracket highlighting)
+    _schemaDiagnostics?: import('../../runtime/elements/json-diagnostics').EditorDiagnostic[]
+    _schemaValidateTimer?: unknown // debounce timer handle for schema validation
 
     // Style cache (for performance optimization)
     _cachedEffectiveStyle?: VisualStyle

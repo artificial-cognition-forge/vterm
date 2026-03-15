@@ -28,7 +28,7 @@ VTerm is a different approach: **bring the web component model to the terminal, 
 
 ### Built to power Axon
 
-VTerm was built as the rendering engine for **[Axon](https://axon.hexlabs.co.uk/)** — a fully terminal-native coding agent with its own custom LLM orchestration layer. Axon is a complex, multi-panel, deeply stateful TUI: live agent traces, streaming tool calls, session management, a command palette, multi-mode input, syntax-highlighted output, scrollable conversation history — all in the terminal.
+VTerm was built as the rendering engine for **[Axon](https://axon.arclabs.it/)** — a fully terminal-native coding agent with its own custom LLM orchestration layer. Axon is a complex, multi-panel, deeply stateful TUI: live agent traces, streaming tool calls, session management, a command palette, multi-mode input, syntax-highlighted output, scrollable conversation history — all in the terminal.
 
 Building that with any existing TUI library was a non-starter. The state management overhead alone would have made iteration prohibitively slow. VTerm was created so the Axon team could write agent UI the same way they'd write a web app: components, reactivity, CSS layout. Ship features without thinking about the renderer.
 
