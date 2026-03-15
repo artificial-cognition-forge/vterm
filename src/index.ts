@@ -5,7 +5,7 @@ import { dev } from "./dev"
 import { init } from "./init"
 import { build } from "./build"
 import { bundle } from "./bundle"
-import { deploy } from "./deploy"
+import { deploy, type BumpType } from "./deploy"
 import { tail } from "./cli/tail"
 import type { LogLevel } from "./build/logger"
 
@@ -31,40 +31,52 @@ const { values, positionals } = parseArgs({
         sourcemap:   { type: "boolean" },
         name:        { type: "string" },
         version:     { type: "string" },
+        // deploy options
+        "dry-run":   { type: "boolean" },
+        "no-git":    { type: "boolean" },
+        "no-bump":   { type: "boolean" },
     },
     allowPositionals: true,
 })
 
-// Get the command (first positional argument)
-const command = positionals[0]
+// Get the command (first positional argument), splitting colon modifier (e.g. deploy:minor)
+const [command, commandModifier] = (positionals[0] ?? "").split(":")
 
 // Handle help flag
 if (values.help || !command) {
     console.log(`Usage: vterm <command> [options]`)
     console.log()
     console.log(`Commands:`)
-    console.log(`  init [dir]    Initialize a new vterm project`)
-    console.log(`  prepare       Generate type declarations and configuration`)
-    console.log(`  build         Build a production package in .output/`)
-    console.log(`  dev           Start development server`)
-    console.log(`  tail          Stream dev logs from .vterm/dev.log.jsonl`)
-    console.log(`  deploy        Publish package to npm`)
-    console.log(`  docs          Launch the vterm documentation browser`)
+    console.log(`  init [dir]         Initialize a new vterm project`)
+    console.log(`  prepare            Generate type declarations and configuration`)
+    console.log(`  build              Build a production package in .output/`)
+    console.log(`  dev                Start development server`)
+    console.log(`  tail               Stream dev logs from .vterm/dev.log.jsonl`)
+    console.log(`  deploy             Publish to npm (default: patch bump)`)
+    console.log(`  deploy:patch       Bump patch version and publish`)
+    console.log(`  deploy:minor       Bump minor version and publish`)
+    console.log(`  deploy:major       Bump major version and publish`)
+    console.log(`  docs               Launch the vterm documentation browser`)
     console.log()
     console.log(`Options:`)
-    console.log(`  --config, -c      Path to vterm.config.ts`)
-    console.log(`  --help, -h        Show this help message`)
-    console.log(`  --level,  -l      Filter tail by level (log|info|warn|error|debug)`)
-    console.log(`  --filter, -f      Filter tail by substring`)
-    console.log(`  --no-follow       Print existing log entries and exit`)
+    console.log(`  --config, -c       Path to vterm.config.ts`)
+    console.log(`  --help, -h         Show this help message`)
+    console.log(`  --level,  -l       Filter tail by level (log|info|warn|error|debug)`)
+    console.log(`  --filter, -f       Filter tail by substring`)
+    console.log(`  --no-follow        Print existing log entries and exit`)
     console.log()
     console.log(`Bundle options:`)
-    console.log(`  --outdir <dir>    Output directory (default: dist/)`)
-    console.log(`  --binary          Also produce a standalone executable`)
-    console.log(`  --no-minify       Disable minification`)
-    console.log(`  --sourcemap       Emit source maps`)
-    console.log(`  --name <name>     Override package name`)
-    console.log(`  --version <ver>   Override package version`)
+    console.log(`  --outdir <dir>     Output directory (default: .output/)`)
+    console.log(`  --binary           Also produce a standalone executable`)
+    console.log(`  --no-minify        Disable minification`)
+    console.log(`  --sourcemap        Emit source maps`)
+    console.log(`  --name <name>      Override package name`)
+    console.log(`  --version <ver>    Override package version`)
+    console.log()
+    console.log(`Deploy options:`)
+    console.log(`  --dry-run          Build and validate without publishing`)
+    console.log(`  --no-git           Skip git commit and tag`)
+    console.log(`  --no-bump          Publish current version without bumping`)
     process.exit(values.help ? 0 : 1)
 }
 
@@ -101,7 +113,14 @@ switch (command) {
 
     case "deploy": {
         const configPath = values.config || "vterm.config.ts"
-        await deploy(configPath)
+        const validBumps = ["patch", "minor", "major", "none"]
+        const bump = validBumps.includes(commandModifier) ? commandModifier as BumpType : undefined
+        await deploy(configPath, {
+            bump,
+            dryRun: values["dry-run"],
+            noGit: values["no-git"],
+            noBump: values["no-bump"],
+        })
         break
     }
 

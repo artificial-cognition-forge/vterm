@@ -123,6 +123,24 @@ export interface VTermConfig {
         registry?: string
         /** Package access level (default: 'public') */
         access?: 'public' | 'restricted'
+        /** npm dist-tag to publish under (default: 'latest') */
+        tag?: string
+        /**
+         * Git integration during deploy.
+         * - true (default): commit package.json bump + create version tag
+         * - false: skip all git operations
+         * - object: fine-grained control
+         */
+        git?: boolean | {
+            /** Commit the version bump to package.json (default: true) */
+            commit?: boolean
+            /** Create a git tag for the version (default: true) */
+            tag?: boolean
+            /** Push commit and tags to remote (default: false) */
+            push?: boolean
+        }
+        /** Always pass --dry-run to npm publish (default: false) */
+        dryRun?: boolean
     }
 }
 
